@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import type { Contact, User, UserRole } from "../types";
-import { login as apiLogin } from "../api/auth";
+import { login as apiLogin, logout as apiLogout } from "../api/auth";
 import { isTokenValid } from "../utils/auth";
 
 interface AppContextType {
@@ -14,7 +14,7 @@ interface AppContextType {
     setUser: (user: User | null) => void;
     isAuthenticated: boolean;
     login: (username: string, password: string) => Promise<boolean>;
-    logout: () => void;
+    logout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -35,7 +35,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     // Check for existing token and user data on app initialization
     useEffect(() => {
-        const initializeAuth = () => {
+        const initializeAuth = async () => {
             const token = localStorage.getItem('token');
             const storedUser = localStorage.getItem('user');
 
@@ -43,7 +43,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 // Validate token first
                 if (!isTokenValid(token)) {
                     console.log('Token has expired');
-                    logout();
+                    await logout();
                     setIsInitialized(true);
                     return;
                 }
@@ -60,7 +60,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                     setCoins(parseInt(userData.credits));
                 } catch (error) {
                     console.error('Error parsing stored user data:', error);
-                    logout(); // Clear invalid data
+                    await logout(); // Clear invalid data
                 }
             }
             setIsInitialized(true);
@@ -81,7 +81,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
             if (response.success) {
                 const userData = {
-                    id: '1', // You might want to get this from the API
+                    id: '1',
                     email: response.data.email,
                     role: response.data.role.toLowerCase() as UserRole,
                     credits: parseInt(response.data.credits),
@@ -99,12 +99,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-        setCoins(0);
-        setMyList([]);
+    const logout = async () => {
+        try {
+            await apiLogout();
+        } catch (error) {
+            console.error('Error during logout:', error);
+        } finally {
+            setUser(null);
+            setCoins(0);
+            setMyList([]);
+        }
     };
 
     if (!isInitialized) {

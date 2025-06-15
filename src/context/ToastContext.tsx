@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -13,7 +13,7 @@ interface ToastContextType {
     showToast: (message: string, type: ToastType) => void;
 }
 
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
+const ToastContext = createContext<ToastContextType | null>(null);
 
 export const useToast = () => {
     const context = useContext(ToastContext);
@@ -23,59 +23,50 @@ export const useToast = () => {
     return context;
 };
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ToastProvider = ({ children }: { children: ReactNode }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     const showToast = useCallback((message: string, type: ToastType) => {
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
-
-        // Auto remove after 3 seconds
         setTimeout(() => {
             setToasts(prev => prev.filter(toast => toast.id !== id));
         }, 3000);
     }, []);
 
-    const removeToast = useCallback((id: number) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-    }, []);
-
     const getToastStyles = (type: ToastType) => {
         switch (type) {
             case 'success':
-                return 'bg-green-100 text-green-800 border-green-300';
+                return 'bg-green-500';
             case 'error':
-                return 'bg-red-100 text-red-800 border-red-300';
+                return 'bg-red-500';
             case 'warning':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                return 'bg-yellow-500';
             case 'info':
-                return 'bg-blue-100 text-blue-800 border-blue-300';
+                return 'bg-blue-500';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-300';
+                return 'bg-gray-500';
         }
     };
 
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
-            <div className="fixed bottom-4 right-4 z-50 space-y-2">
-                {toasts.map(toast => (
-                    <div
-                        key={toast.id}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg shadow-md border ${getToastStyles(toast.type)}`}
-                    >
-                        <span className="mr-4">{toast.message}</span>
-                        <button
-                            onClick={() => removeToast(toast.id)}
-                            className="text-gray-500 hover:text-gray-700"
+            <div className="fixed bottom-4 right-4 z-50">
+                <AnimatePresence>
+                    {toasts.map(toast => (
+                        <motion.div
+                            key={toast.id}
+                            initial={{ opacity: 0, y: 50 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                            className={`${getToastStyles(toast.type)} text-white px-4 py-2 rounded shadow-lg mb-2`}
                         >
-                            <X size={18} />
-                        </button>
-                    </div>
-                ))}
+                            {toast.message}
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
         </ToastContext.Provider>
     );
-};
-
-export default ToastProvider; 
+}; 

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Upload, X, Download } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { getContacts, type Contact, type ContactsResponse } from '../../api/contacts';
 
-interface Contact {
-    id: string;
+interface ContactFormData {
     companyName: string;
     personName: string;
     email: string;
@@ -12,47 +12,24 @@ interface Contact {
     city?: string;
     department: string;
     designation: string;
-    status: 'active' | 'inactive';
-    createdAt: string;
 }
-
-// Mock data - Replace with API calls in production
-const initialContacts: Contact[] = [
-    {
-        id: '1',
-        companyName: 'Pharma Corp',
-        personName: 'John Smith',
-        email: 'john@pharmaco.com',
-        mobile: '+1234567890',
-        country: 'USA',
-        city: 'New York',
-        department: 'Sales',
-        designation: 'Sales Manager',
-        status: 'active',
-        createdAt: '2024-03-15'
-    },
-    {
-        id: '2',
-        companyName: 'MediTech',
-        personName: 'Sarah Johnson',
-        email: 'sarah@meditech.com',
-        country: 'UK',
-        city: 'London',
-        department: 'Purchase',
-        designation: 'Procurement Lead',
-        status: 'active',
-        createdAt: '2024-03-14'
-    }
-];
 
 const departments = ['Sales', 'Purchase', 'Supply Chain', 'Marketing', 'R&D'];
 const countries = ['USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'India'];
 
 const ContactManagement = () => {
-    const [contacts, setContacts] = useState<Contact[]>(initialContacts);
+    const [contactsData, setContactsData] = useState<ContactsResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [searchParams, setSearchParams] = useState({
+        company_name: '',
+        designation: '',
+        person_country: '',
+        city: ''
+    });
     const [showModal, setShowModal] = useState(false);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<ContactFormData>({
         companyName: '',
         personName: '',
         email: '',
@@ -63,6 +40,33 @@ const ContactManagement = () => {
         designation: '',
     });
     const { showToast } = useToast();
+
+    const fetchContacts = async (page: number = 1) => {
+        try {
+            setLoading(true);
+            const response = await getContacts({
+                ...searchParams,
+                page,
+                per_page: 10
+            });
+            setContactsData(response);
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+            showToast('Failed to fetch contacts', 'error');
+            setContactsData(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchContacts(currentPage);
+    }, [currentPage]);
+
+    const handleSearch = async () => {
+        setCurrentPage(1);
+        await fetchContacts(1);
+    };
 
     const handleAddContact = () => {
         setSelectedContact(null);
@@ -82,68 +86,45 @@ const ContactManagement = () => {
     const handleEditContact = (contact: Contact) => {
         setSelectedContact(contact);
         setFormData({
-            companyName: contact.companyName,
-            personName: contact.personName,
-            email: contact.email,
-            mobile: contact.mobile || '',
-            country: contact.country,
-            city: contact.city || '',
+            companyName: contact.company_name,
+            personName: contact.person_name,
+            email: '', // Add these fields when available in the API
+            mobile: '',
+            country: contact.person_country,
+            city: contact.city,
             department: contact.department,
             designation: contact.designation,
         });
         setShowModal(true);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (selectedContact) {
-            // Edit existing contact
-            setContacts(contacts.map(contact =>
-                contact.id === selectedContact.id
-                    ? { ...contact, ...formData }
-                    : contact
-            ));
-            showToast('Contact updated successfully', 'success');
-        } else {
-            // Add new contact
-            const newContact: Contact = {
-                id: Math.random().toString(36).substr(2, 9),
-                ...formData,
-                status: 'active',
-                createdAt: new Date().toISOString().split('T')[0]
-            };
-            setContacts([...contacts, newContact]);
-            showToast('Contact added successfully', 'success');
-        }
+        // TODO: Implement API integration for add/edit
+        showToast(selectedContact ? 'Contact updated successfully' : 'Contact added successfully', 'success');
         setShowModal(false);
+        fetchContacts(currentPage);
     };
 
-    const handleDeleteContact = (contactId: string) => {
+    const handleDeleteContact = async (contact: Contact) => {
         if (confirm('Are you sure you want to delete this contact?')) {
-            setContacts(contacts.filter(contact => contact.id !== contactId));
+            // TODO: Implement API integration for delete
             showToast('Contact deleted successfully', 'success');
+            fetchContacts(currentPage);
         }
     };
 
     const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // In a real application, you would handle the file upload here
-            // For now, we'll just show a success message
+            // TODO: Implement API integration for bulk upload
             showToast('Bulk upload started. Processing file...', 'info');
-            setTimeout(() => {
-                showToast('Contacts imported successfully', 'success');
-            }, 2000);
         }
     };
 
     const handleExportContacts = () => {
-        // In a real application, you would generate and download a CSV file
-        // For now, we'll just show a success message
+        // TODO: Implement API integration for export
         showToast('Exporting contacts...', 'info');
-        setTimeout(() => {
-            showToast('Contacts exported successfully', 'success');
-        }, 1000);
     };
 
     return (
@@ -183,6 +164,48 @@ const ContactManagement = () => {
                 </div>
             </div>
 
+            {/* Search Form */}
+            <div className="mb-6 bg-white p-4 rounded-lg shadow">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <input
+                        type="text"
+                        placeholder="Company Name"
+                        className="border rounded px-3 py-2"
+                        value={searchParams.company_name}
+                        onChange={(e) => setSearchParams({ ...searchParams, company_name: e.target.value })}
+                    />
+                    <input
+                        type="text"
+                        placeholder="Designation"
+                        className="border rounded px-3 py-2"
+                        value={searchParams.designation}
+                        onChange={(e) => setSearchParams({ ...searchParams, designation: e.target.value })}
+                    />
+                    <input
+                        type="text"
+                        placeholder="Country"
+                        className="border rounded px-3 py-2"
+                        value={searchParams.person_country}
+                        onChange={(e) => setSearchParams({ ...searchParams, person_country: e.target.value })}
+                    />
+                    <input
+                        type="text"
+                        placeholder="City"
+                        className="border rounded px-3 py-2"
+                        value={searchParams.city}
+                        onChange={(e) => setSearchParams({ ...searchParams, city: e.target.value })}
+                    />
+                </div>
+                <div className="mt-4 flex justify-end">
+                    <button
+                        onClick={handleSearch}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                        Search
+                    </button>
+                </div>
+            </div>
+
             {/* Contact Table */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
@@ -194,9 +217,6 @@ const ContactManagement = () => {
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Contact Person
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Email/Phone
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Location
@@ -213,57 +233,121 @@ const ContactManagement = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {contacts.map((contact) => (
-                                <tr key={contact.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{contact.companyName}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{contact.personName}</div>
-                                        <div className="text-sm text-gray-500">{contact.designation}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{contact.email}</div>
-                                        {contact.mobile && (
-                                            <div className="text-sm text-gray-500">{contact.mobile}</div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{contact.country}</div>
-                                        {contact.city && (
-                                            <div className="text-sm text-gray-500">{contact.city}</div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">{contact.department}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${contact.status === 'active'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
-                                            }`}>
-                                            {contact.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                                        <button
-                                            onClick={() => handleEditContact(contact)}
-                                            className="text-blue-600 hover:text-blue-900"
-                                        >
-                                            <Pencil size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteContact(contact.id)}
-                                            className="text-red-600 hover:text-red-900"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-4 text-center">
+                                        <div className="flex justify-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                        </div>
                                     </td>
                                 </tr>
-                            ))}
+                            ) : !contactsData?.data?.length ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                                        No contacts found
+                                    </td>
+                                </tr>
+                            ) : (
+                                contactsData.data.map((contact) => (
+                                    <tr key={`${contact.company_name}-${contact.person_name}`} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">{contact.company_name}</div>
+                                            {contact.company_website && (
+                                                <div className="text-sm text-gray-500">{contact.company_website}</div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">{contact.person_name}</div>
+                                            <div className="text-sm text-gray-500">{contact.designation}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">{contact.person_country}</div>
+                                            <div className="text-sm text-gray-500">{contact.city}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">{contact.department}</div>
+                                            <div className="text-sm text-gray-500">{contact.company_type}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${contact.status === 'Active'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-red-100 text-red-800'
+                                                }`}>
+                                                {contact.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                            <button
+                                                onClick={() => handleEditContact(contact)}
+                                                className="text-blue-600 hover:text-blue-900"
+                                            >
+                                                <Pencil size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteContact(contact)}
+                                                className="text-red-600 hover:text-red-900"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination */}
+                {contactsData && contactsData.last_page > 1 && (
+                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
+                        <div className="flex-1 flex justify-between sm:hidden">
+                            <button
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                disabled={!contactsData.prev_page_url}
+                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                disabled={!contactsData.next_page_url}
+                                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-sm text-gray-700">
+                                    Showing <span className="font-medium">{contactsData.from}</span> to{' '}
+                                    <span className="font-medium">{contactsData.to}</span> of{' '}
+                                    <span className="font-medium">{contactsData.total}</span> results
+                                </p>
+                            </div>
+                            <div>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    {contactsData.links.map((link, index) => {
+                                        if (link.label.includes('Previous') || link.label.includes('Next')) {
+                                            return null;
+                                        }
+                                        return (
+                                            <button
+                                                key={index}
+                                                onClick={() => setCurrentPage(parseInt(link.label))}
+                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${link.active
+                                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                                    }`}
+                                            >
+                                                {link.label}
+                                            </button>
+                                        );
+                                    })}
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Add/Edit Contact Modal */}

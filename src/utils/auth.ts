@@ -16,4 +16,8 @@ export const isTokenValid = (token: string): boolean => {
         console.error('Error validating token:', error);
         return false;
     }
+};
+
+export const encodePassword = (password: string): string => {
+    return btoa(password);
 }; 

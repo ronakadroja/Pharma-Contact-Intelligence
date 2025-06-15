@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'user';
+export type UserStatus = 'active' | 'inactive';
 
 export interface User {
     id: string;
@@ -6,6 +7,11 @@ export interface User {
     role: UserRole;
     credits: number;
     name: string;
+    phone_number: string;
+    company: string;
+    country: string;
+    status: UserStatus;
+    createdAt: string;
 }
 
 export interface Contact {

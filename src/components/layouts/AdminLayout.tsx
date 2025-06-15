@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
@@ -10,8 +10,13 @@ import {
     Menu,
     X,
     BarChart2,
-    Upload
+    Upload,
+    ChevronRight
 } from 'lucide-react';
+import { motion, AnimatePresence, easeInOut } from 'framer-motion';
+import type { Variants } from 'framer-motion';
+import { useSpring, animated } from '@react-spring/web';
+import { useDrag } from '@use-gesture/react';
 import classNames from 'classnames';
 
 const navigation = [
@@ -23,76 +28,162 @@ const navigation = [
     { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
+// Animation variants for menu items
+const menuItemVariants: Variants = {
+    hidden: {
+        opacity: 0,
+        x: -20,
+        transition: { duration: 0.2 }
+    },
+    visible: {
+        opacity: 1,
+        x: 0,
+        transition: {
+            duration: 0.3,
+            ease: easeInOut
+        }
+    }
+};
+
 const AdminLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { user, logout } = useAppContext();
     const navigate = useNavigate();
     const location = useLocation();
+    const sidebarRef = useRef<HTMLDivElement>(null);
+
+    // Spring animation for the sidebar
+    const [{ x }, api] = useSpring(() => ({ x: -320 }));
+
+    // Gesture binding for swipe
+    const bind = useDrag(
+        ({ down, movement: [mx], direction: [dx], cancel }) => {
+            // If sidebar is closed and swiping right, or sidebar is open and swiping left
+            if ((!sidebarOpen && mx > 50 && dx > 0) || (sidebarOpen && mx < -50 && dx < 0)) {
+                cancel();
+                setSidebarOpen(!sidebarOpen);
+            } else {
+                // Update spring animation
+                api.start({
+                    x: sidebarOpen ? Math.max(-320, mx) : Math.min(0, -320 + mx),
+                    immediate: down
+                });
+            }
+        },
+        {
+            axis: 'x',
+            bounds: { left: -320, right: 0 },
+            rubberband: true,
+            from: () => [x.get(), 0],
+            filterTaps: true,
+            preventScroll: true
+        }
+    );
+
+    // Handle click outside to close sidebar
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+                setSidebarOpen(false);
+            }
+        };
+
+        if (sidebarOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [sidebarOpen]);
+
+    // Update spring animation when sidebar state changes
+    useEffect(() => {
+        api.start({ x: sidebarOpen ? 0 : -320 });
+    }, [sidebarOpen, api]);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
+    // Get current page title and create breadcrumb
+    const currentPage = navigation.find(item => item.href === location.pathname);
+    const pageTitle = currentPage?.name || 'Dashboard';
+
     return (
         <div className="min-h-screen bg-gray-100">
-            {/* Mobile sidebar overlay */}
-            <div className={classNames(
-                'fixed inset-0 bg-gray-600 bg-opacity-75 z-40 transition-opacity duration-300 ease-in-out lg:hidden',
-                sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            )}>
-                {/* Mobile sidebar */}
-                <div className="fixed inset-0 z-40 flex">
-                    <div className={classNames(
-                        'relative flex-1 flex flex-col max-w-xs w-full bg-white transform transition-transform ease-in-out duration-300',
-                        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                    )}>
-                        <div className="absolute top-0 right-0 -mr-12 pt-2">
-                            <button
-                                type="button"
-                                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                                onClick={() => setSidebarOpen(false)}
-                            >
-                                <X className="h-6 w-6 text-white" />
-                            </button>
-                        </div>
-                        <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-                            <div className="flex-shrink-0 flex items-center px-4">
-                                <span className="text-2xl font-bold text-blue-600">Admin Panel</span>
+            <AnimatePresence>
+                {sidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-gray-600 bg-opacity-75 backdrop-blur-sm z-40 lg:hidden"
+                    >
+                        <animated.div
+                            ref={sidebarRef}
+                            {...bind()}
+                            style={{
+                                transform: x.to(x => `translateX(${x}px)`),
+                                touchAction: 'none'
+                            }}
+                            className="fixed inset-0 z-40 flex"
+                        >
+                            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+                                <div className="absolute top-0 right-0 -mr-12 pt-2">
+                                    <button
+                                        type="button"
+                                        className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                                        onClick={() => setSidebarOpen(false)}
+                                    >
+                                        <X className="h-6 w-6 text-white" />
+                                    </button>
+                                </div>
+
+                                <div className="flex-shrink-0 flex items-center px-4 py-5">
+                                    <span className="text-2xl font-bold text-blue-600">Admin Panel</span>
+                                </div>
+
+                                <nav className="mt-5 flex-1 px-2 space-y-1">
+                                    {navigation.map((item, index) => {
+                                        const isActive = location.pathname === item.href;
+                                        return (
+                                            <motion.div
+                                                key={item.name}
+                                                custom={index}
+                                                initial="hidden"
+                                                animate="visible"
+                                                variants={menuItemVariants}
+                                            >
+                                                <Link
+                                                    to={item.href}
+                                                    onClick={() => setSidebarOpen(false)}
+                                                    className={classNames(
+                                                        isActive
+                                                            ? 'bg-blue-50 text-blue-600'
+                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600',
+                                                        'group flex items-center px-2 py-2 text-base font-medium rounded-md transition-all duration-200'
+                                                    )}
+                                                >
+                                                    <item.icon
+                                                        className={classNames(
+                                                            isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
+                                                            'mr-4 flex-shrink-0 h-6 w-6 transition-colors duration-200'
+                                                        )}
+                                                    />
+                                                    {item.name}
+                                                </Link>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </nav>
                             </div>
-                            <nav className="mt-5 px-2 space-y-1">
-                                {navigation.map((item) => {
-                                    const isActive = location.pathname === item.href;
-                                    return (
-                                        <Link
-                                            key={item.name}
-                                            to={item.href}
-                                            onClick={() => setSidebarOpen(false)}
-                                            className={classNames(
-                                                isActive
-                                                    ? 'bg-gray-100 text-blue-600'
-                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600',
-                                                'group flex items-center px-2 py-2 text-base font-medium rounded-md'
-                                            )}
-                                        >
-                                            <item.icon
-                                                className={classNames(
-                                                    isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
-                                                    'mr-4 flex-shrink-0 h-6 w-6'
-                                                )}
-                                            />
-                                            {item.name}
-                                        </Link>
-                                    );
-                                })}
-                            </nav>
-                        </div>
-                    </div>
-                    <div className="flex-shrink-0 w-14" aria-hidden="true">
-                        {/* Force sidebar to shrink to fit close icon */}
-                    </div>
-                </div>
-            </div>
+                        </animated.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Static sidebar for desktop */}
             <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
@@ -110,15 +201,15 @@ const AdminLayout = () => {
                                         to={item.href}
                                         className={classNames(
                                             isActive
-                                                ? 'bg-gray-100 text-blue-600'
+                                                ? 'bg-blue-50 text-blue-600'
                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600',
-                                            'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
+                                            'group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200'
                                         )}
                                     >
                                         <item.icon
                                             className={classNames(
                                                 isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
-                                                'mr-3 flex-shrink-0 h-6 w-6'
+                                                'mr-3 flex-shrink-0 h-6 w-6 transition-colors duration-200'
                                             )}
                                         />
                                         {item.name}
@@ -140,17 +231,29 @@ const AdminLayout = () => {
                     >
                         <Menu className="h-6 w-6" />
                     </button>
+
                     <div className="flex-1 px-4 flex justify-between">
                         <div className="flex-1 flex items-center">
-                            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate">
-                                {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
-                            </h1>
+                            <div className="flex items-center text-gray-600">
+                                <span className="text-gray-400">Admin</span>
+                                <ChevronRight className="h-4 w-4 mx-2" />
+                                <div className="group relative">
+                                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-md">
+                                        {pageTitle}
+                                    </h1>
+                                    {/* Tooltip for truncated text */}
+                                    <div className="absolute left-0 -bottom-8 hidden group-hover:block bg-gray-800 text-white text-sm px-2 py-1 rounded">
+                                        {pageTitle}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
                         <div className="ml-4 flex items-center gap-2 sm:gap-4">
                             <span className="hidden sm:inline text-gray-700">Welcome, {user?.name}</span>
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-all duration-200"
                             >
                                 <LogOut size={18} />
                                 <span className="hidden sm:inline">Logout</span>

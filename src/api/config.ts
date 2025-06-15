@@ -2,9 +2,11 @@ import axios from 'axios';
 
 // Create axios instance with custom config
 const api = axios.create({
-    baseURL: 'https://3148-152-58-35-171.ngrok-free.app/api',
+    baseURL: '/api', // Use relative URL, will be handled by Vite proxy
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true' // Add this header to skip ngrok warning
     },
 });
 
