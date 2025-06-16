@@ -36,6 +36,7 @@ export interface CreateUserPayload {
     country: string;
     role: string;
     credits: string;
+    status: string;
 }
 
 export interface CreateUserResponse {
@@ -54,4 +55,5 @@ export interface UpdateUserPayload {
     country?: string;
     role?: string;
     credits?: string;
+    status?: string;
 } 

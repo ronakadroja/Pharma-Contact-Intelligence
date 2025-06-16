@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Upload, X, Download } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { getContacts, type Contact, type ContactsResponse } from '../../api/contacts';
+import {
+    getContacts,
+    deleteContact,
+    updateContactStatus,
+    type Contact,
+    type ContactsResponse
+} from '../../api/contacts';
+import Header from "../../components/Header";
+import Pagination from "../../components/Pagination";
+import ContactForm from '../../components/ContactForm';
+import ConfirmationDialog from '../../components/ConfirmationDialog';
 
 interface ContactFormData {
     companyName: string;
@@ -29,6 +39,8 @@ const ContactManagement = () => {
     });
     const [showModal, setShowModal] = useState(false);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+    const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
     const [formData, setFormData] = useState<ContactFormData>({
         companyName: '',
         personName: '',
@@ -40,19 +52,42 @@ const ContactManagement = () => {
         designation: '',
     });
     const { showToast } = useToast();
+    const [error, setError] = useState<string | null>(null);
+    const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
+    const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
+    const [bulkStatusToSet, setBulkStatusToSet] = useState<'Active' | 'Inactive' | null>(null);
+    const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
     const fetchContacts = async (page: number = 1) => {
         try {
             setLoading(true);
+            setError(null);
+
+            // Only include search params that have values
+            const searchParamsToSend = Object.fromEntries(
+                Object.entries(searchParams).filter(([_, value]) => value.trim() !== '')
+            );
+
             const response = await getContacts({
-                ...searchParams,
+                ...searchParamsToSend,
                 page,
                 per_page: 10
             });
             setContactsData(response);
         } catch (error) {
             console.error('Error fetching contacts:', error);
-            showToast('Failed to fetch contacts', 'error');
+            let errorMessage = 'Failed to fetch contacts';
+
+            // Handle validation errors
+            if (error && typeof error === 'object' && 'response' in error) {
+                const responseError = error as { response?: { status: number; data?: any } };
+                if (responseError.response?.status === 422) {
+                    errorMessage = 'Invalid search parameters. Please check your input.';
+                }
+            }
+
+            showToast(errorMessage, 'error');
+            setError(errorMessage);
             setContactsData(null);
         } finally {
             setLoading(false);
@@ -98,19 +133,23 @@ const ContactManagement = () => {
         setShowModal(true);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        // TODO: Implement API integration for add/edit
-        showToast(selectedContact ? 'Contact updated successfully' : 'Contact added successfully', 'success');
-        setShowModal(false);
-        fetchContacts(currentPage);
+    const handleDeleteClick = (contact: Contact) => {
+        setContactToDelete(contact);
+        setShowDeleteConfirmation(true);
     };
 
-    const handleDeleteContact = async (contact: Contact) => {
-        if (confirm('Are you sure you want to delete this contact?')) {
-            // TODO: Implement API integration for delete
+    const handleDeleteConfirm = async () => {
+        if (!contactToDelete) return;
+
+        try {
+            await deleteContact(contactToDelete.id);
             showToast('Contact deleted successfully', 'success');
             fetchContacts(currentPage);
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to delete contact', 'error');
+        } finally {
+            setShowDeleteConfirmation(false);
+            setContactToDelete(null);
         }
     };
 
@@ -125,6 +164,50 @@ const ContactManagement = () => {
     const handleExportContacts = () => {
         // TODO: Implement API integration for export
         showToast('Exporting contacts...', 'info');
+    };
+
+    const handleFormSuccess = () => {
+        setShowModal(false);
+        setSelectedContact(null);
+        fetchContacts(currentPage);
+    };
+
+    const handleBulkDeleteClick = () => {
+        setShowBulkDeleteConfirmation(true);
+    };
+
+    const handleBulkDeleteConfirm = async () => {
+        try {
+            await Promise.all(selectedRows.map(id => deleteContact(id)));
+            showToast(`Successfully deleted ${selectedRows.length} contacts`, 'success');
+            setSelectedRows([]);
+            fetchContacts(currentPage);
+        } catch (error) {
+            showToast('Failed to delete some contacts', 'error');
+        } finally {
+            setShowBulkDeleteConfirmation(false);
+        }
+    };
+
+    const handleBulkStatusClick = (status: 'Active' | 'Inactive') => {
+        setBulkStatusToSet(status);
+        setShowBulkStatusConfirmation(true);
+    };
+
+    const handleBulkStatusConfirm = async () => {
+        if (!bulkStatusToSet) return;
+
+        try {
+            await Promise.all(selectedRows.map(id => updateContactStatus(id, bulkStatusToSet)));
+            showToast(`Successfully updated status for ${selectedRows.length} contacts`, 'success');
+            setSelectedRows([]);
+            fetchContacts(currentPage);
+        } catch (error) {
+            showToast('Failed to update status for some contacts', 'error');
+        } finally {
+            setShowBulkStatusConfirmation(false);
+            setBulkStatusToSet(null);
+        }
     };
 
     return (
@@ -172,39 +255,91 @@ const ContactManagement = () => {
                         placeholder="Company Name"
                         className="border rounded px-3 py-2"
                         value={searchParams.company_name}
-                        onChange={(e) => setSearchParams({ ...searchParams, company_name: e.target.value })}
+                        onChange={(e) => setSearchParams(prev => ({
+                            ...prev,
+                            company_name: e.target.value.trim()
+                        }))}
                     />
                     <input
                         type="text"
                         placeholder="Designation"
                         className="border rounded px-3 py-2"
                         value={searchParams.designation}
-                        onChange={(e) => setSearchParams({ ...searchParams, designation: e.target.value })}
+                        onChange={(e) => setSearchParams(prev => ({
+                            ...prev,
+                            designation: e.target.value.trim()
+                        }))}
                     />
                     <input
                         type="text"
                         placeholder="Country"
                         className="border rounded px-3 py-2"
                         value={searchParams.person_country}
-                        onChange={(e) => setSearchParams({ ...searchParams, person_country: e.target.value })}
+                        onChange={(e) => setSearchParams(prev => ({
+                            ...prev,
+                            person_country: e.target.value.trim()
+                        }))}
                     />
                     <input
                         type="text"
                         placeholder="City"
                         className="border rounded px-3 py-2"
                         value={searchParams.city}
-                        onChange={(e) => setSearchParams({ ...searchParams, city: e.target.value })}
+                        onChange={(e) => setSearchParams(prev => ({
+                            ...prev,
+                            city: e.target.value.trim()
+                        }))}
                     />
                 </div>
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-end gap-2">
                     <button
-                        onClick={handleSearch}
+                        onClick={() => {
+                            setSearchParams({
+                                company_name: '',
+                                designation: '',
+                                person_country: '',
+                                city: ''
+                            });
+                            fetchContacts(1);
+                        }}
+                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+                    >
+                        Reset
+                    </button>
+                    <button
+                        onClick={() => {
+                            setCurrentPage(1);
+                            fetchContacts(1);
+                        }}
                         className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                         Search
                     </button>
                 </div>
             </div>
+
+            {selectedRows.length > 0 && (
+                <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between mb-4">
+                    <span className="text-sm text-blue-700">{selectedRows.length} contacts selected</span>
+                    <div className="flex gap-2">
+                        <select
+                            onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
+                            className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            value=""
+                        >
+                            <option value="">Change Status</option>
+                            <option value="Active">Set Active</option>
+                            <option value="Inactive">Set Inactive</option>
+                        </select>
+                        <button
+                            onClick={handleBulkDeleteClick}
+                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                            Delete Selected
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Contact Table */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -249,7 +384,7 @@ const ContactManagement = () => {
                                 </tr>
                             ) : (
                                 contactsData.data.map((contact) => (
-                                    <tr key={`${contact.company_name}-${contact.person_name}`} className="hover:bg-gray-50">
+                                    <tr key={contact.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{contact.company_name}</div>
                                             {contact.company_website && (
@@ -261,34 +396,33 @@ const ContactManagement = () => {
                                             <div className="text-sm text-gray-500">{contact.designation}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{contact.person_country}</div>
-                                            <div className="text-sm text-gray-500">{contact.city}</div>
+                                            <div className="text-sm text-gray-900">{contact.city}, {contact.person_country}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">{contact.department}</div>
                                             <div className="text-sm text-gray-500">{contact.company_type}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${contact.status === 'Active'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${contact.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                 }`}>
                                                 {contact.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                                            <button
-                                                onClick={() => handleEditContact(contact)}
-                                                className="text-blue-600 hover:text-blue-900"
-                                            >
-                                                <Pencil size={18} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteContact(contact)}
-                                                className="text-red-600 hover:text-red-900"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <div className="flex space-x-3">
+                                                <button
+                                                    onClick={() => handleEditContact(contact)}
+                                                    className="text-blue-600 hover:text-blue-900 transition-colors"
+                                                >
+                                                    <Pencil className="h-5 w-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteClick(contact)}
+                                                    className="text-red-600 hover:text-red-900 transition-colors"
+                                                >
+                                                    <Trash2 className="h-5 w-5" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -299,198 +433,77 @@ const ContactManagement = () => {
 
                 {/* Pagination */}
                 {contactsData && contactsData.last_page > 1 && (
-                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
-                        <div className="flex-1 flex justify-between sm:hidden">
-                            <button
-                                onClick={() => setCurrentPage(currentPage - 1)}
-                                disabled={!contactsData.prev_page_url}
-                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                            >
-                                Previous
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(currentPage + 1)}
-                                disabled={!contactsData.next_page_url}
-                                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                            >
-                                Next
-                            </button>
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+                        <div className="text-sm text-gray-500">
+                            Showing page {currentPage} of {contactsData.last_page}
                         </div>
-                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                            <div>
-                                <p className="text-sm text-gray-700">
-                                    Showing <span className="font-medium">{contactsData.from}</span> to{' '}
-                                    <span className="font-medium">{contactsData.to}</span> of{' '}
-                                    <span className="font-medium">{contactsData.total}</span> results
-                                </p>
-                            </div>
-                            <div>
-                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                    {contactsData.links.map((link, index) => {
-                                        if (link.label.includes('Previous') || link.label.includes('Next')) {
-                                            return null;
-                                        }
-                                        return (
-                                            <button
-                                                key={index}
-                                                onClick={() => setCurrentPage(parseInt(link.label))}
-                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${link.active
-                                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                                    }`}
-                                            >
-                                                {link.label}
-                                            </button>
-                                        );
-                                    })}
-                                </nav>
-                            </div>
-                        </div>
+                        <Pagination
+                            total={contactsData.total}
+                            perPage={10}
+                            currentPage={currentPage}
+                            onPageChange={setCurrentPage}
+                        />
                     </div>
                 )}
             </div>
 
+            {/* Delete Confirmation Dialog */}
+            <ConfirmationDialog
+                isOpen={showDeleteConfirmation}
+                title="Delete Contact"
+                message={`Are you sure you want to delete ${contactToDelete?.person_name}'s contact information? This action cannot be undone.`}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                confirmVariant="danger"
+                onConfirm={handleDeleteConfirm}
+                onCancel={() => {
+                    setShowDeleteConfirmation(false);
+                    setContactToDelete(null);
+                }}
+            />
+
+            {/* Bulk Delete Confirmation Dialog */}
+            <ConfirmationDialog
+                isOpen={showBulkDeleteConfirmation}
+                title="Delete Multiple Contacts"
+                message={`Are you sure you want to delete ${selectedRows.length} contacts? This action cannot be undone.`}
+                confirmLabel="Delete All"
+                cancelLabel="Cancel"
+                confirmVariant="danger"
+                onConfirm={handleBulkDeleteConfirm}
+                onCancel={() => setShowBulkDeleteConfirmation(false)}
+            />
+
+            {/* Bulk Status Change Confirmation Dialog */}
+            <ConfirmationDialog
+                isOpen={showBulkStatusConfirmation}
+                title="Update Contact Status"
+                message={`Are you sure you want to set ${selectedRows.length} contacts to ${bulkStatusToSet} status?`}
+                confirmLabel="Update All"
+                cancelLabel="Cancel"
+                confirmVariant="warning"
+                onConfirm={handleBulkStatusConfirm}
+                onCancel={() => {
+                    setShowBulkStatusConfirmation(false);
+                    setBulkStatusToSet(null);
+                }}
+            />
+
             {/* Add/Edit Contact Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-medium text-gray-900">
-                                {selectedContact ? 'Edit Contact' : 'Add New Contact'}
-                            </h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-500">
-                                <X size={20} />
-                            </button>
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
                         </div>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">
-                                        Company Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="companyName"
-                                        value={formData.companyName}
-                                        onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="personName" className="block text-sm font-medium text-gray-700">
-                                        Contact Person Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="personName"
-                                        value={formData.personName}
-                                        onChange={(e) => setFormData({ ...formData, personName: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                        Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="mobile" className="block text-sm font-medium text-gray-700">
-                                        Mobile Number
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        id="mobile"
-                                        value={formData.mobile}
-                                        onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                                        Country
-                                    </label>
-                                    <select
-                                        id="country"
-                                        value={formData.country}
-                                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select Country</option>
-                                        {countries.map(country => (
-                                            <option key={country} value={country}>{country}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                                        City
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="city"
-                                        value={formData.city}
-                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                                        Department
-                                    </label>
-                                    <select
-                                        id="department"
-                                        value={formData.department}
-                                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select Department</option>
-                                        {departments.map(dept => (
-                                            <option key={dept} value={dept}>{dept}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
-                                        Designation
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="designation"
-                                        value={formData.designation}
-                                        onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
-                                >
-                                    {selectedContact ? 'Update' : 'Add'} Contact
-                                </button>
-                            </div>
-                        </form>
+
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                            <ContactForm
+                                contact={selectedContact}
+                                onSuccess={handleFormSuccess}
+                                onCancel={() => setShowModal(false)}
+                            />
+                        </div>
                     </div>
                 </div>
             )}

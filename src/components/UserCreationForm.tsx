@@ -12,6 +12,7 @@ interface UserCreationFormProps {
 
 const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'Spain', 'Italy', 'Japan'];
 const ROLES = ['User', 'Admin'];
+const STATUS_OPTIONS = ['Active', 'Deactive'];
 
 const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) => {
     const { showToast } = useToast();
@@ -24,7 +25,8 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
         company: user?.company || '',
         country: user?.country || '',
         credits: user?.credits.toString() || '0',
-        role: user?.role || 'User'
+        role: user?.role || 'User',
+        status: user?.status || 'Active'
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -49,7 +51,8 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                     company: formData.company,
                     country: formData.country,
                     role: formData.role,
-                    credits: formData.credits
+                    credits: formData.credits,
+                    status: formData.status
                 };
 
                 // Only include password if it was changed
@@ -79,7 +82,8 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                     company: '',
                     country: '',
                     credits: '0',
-                    role: 'User'
+                    role: 'User',
+                    status: 'Active'
                 });
             }
             onSuccess?.();
@@ -215,6 +219,24 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                         >
                             {ROLES.map(role => (
                                 <option key={role} value={role}>{role}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                            Status <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            id="status"
+                            name="status"
+                            value={formData.status}
+                            onChange={handleChange}
+                            required
+                            className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                            {STATUS_OPTIONS.map(status => (
+                                <option key={status} value={status}>{status}</option>
                             ))}
                         </select>
                     </div>

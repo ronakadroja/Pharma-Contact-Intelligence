@@ -49,8 +49,8 @@ const Pagination = ({ total, perPage, currentPage, onPageChange }: PaginationPro
                     key={i}
                     onClick={() => onPageChange(i)}
                     className={`px-3 py-1 rounded text-sm ${i === currentPage
-                            ? "bg-blue-600 text-white hover:bg-blue-700"
-                            : "hover:bg-gray-100"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "hover:bg-gray-100"
                         }`}
                     aria-label={`Go to page ${i}`}
                     aria-current={i === currentPage ? "page" : undefined}
@@ -85,7 +85,7 @@ const Pagination = ({ total, perPage, currentPage, onPageChange }: PaginationPro
     };
 
     return (
-        <div className="flex items-center justify-between border-t mt-4 pt-4">
+        <div className="flex items-center justify-between border-t py-4">
             <div className="flex items-center text-sm text-gray-500">
                 <span>
                     Showing {Math.min((currentPage - 1) * perPage + 1, total)} to{" "}
@@ -97,8 +97,8 @@ const Pagination = ({ total, perPage, currentPage, onPageChange }: PaginationPro
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className={`p-1 rounded ${currentPage === 1
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-100"
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-500 hover:bg-gray-100"
                         }`}
                     aria-label="Previous page"
                 >
@@ -113,8 +113,8 @@ const Pagination = ({ total, perPage, currentPage, onPageChange }: PaginationPro
                     onClick={() => onPageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className={`p-1 rounded ${currentPage === totalPages
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-100"
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-500 hover:bg-gray-100"
                         }`}
                     aria-label="Next page"
                 >

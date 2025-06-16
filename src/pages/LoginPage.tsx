@@ -114,15 +114,6 @@ const LoginPage = () => {
                                     </>
                                 )}
                             </button>
-
-                            <div className="text-center pt-4 border-t border-gray-100">
-                                <p className="text-sm text-gray-600 mb-1">
-                                    Demo Admin: admin@example.com / password
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                    Demo User: user@example.com / password
-                                </p>
-                            </div>
                         </form>
                     </div>
                 </div>
