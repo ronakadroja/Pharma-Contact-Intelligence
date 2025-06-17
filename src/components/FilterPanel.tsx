@@ -1,33 +1,25 @@
 import { useState, useEffect } from "react";
-import type { Contact } from "../types";
-import { MOCK_CONTACTS } from "../utils/mockData";
 import { X, Filter, ChevronDown, ChevronUp, Search } from "lucide-react";
+
+interface FilterState {
+    company_name: string;
+    designation: string;
+    person_country: string;
+}
 
 interface FilterPanelProps {
     onFilter: (filters: FilterState) => void;
     isMobile: boolean;
 }
 
-interface FilterState {
-    search: string;
-    country: string;
-    industry: string;
-    status: string;
-    companySize: string;
-    department: string;
-}
-
 const initialFilters: FilterState = {
-    search: "",
-    country: "All",
-    industry: "All",
-    status: "All",
-    companySize: "All",
-    department: "All"
+    company_name: "",
+    designation: "",
+    person_country: ""
 };
 
-const COMPANY_SIZES = ["All", "100-500", "500-1000", "1000+"];
-const STATUSES = ["All", "Active", "Inactive"];
+const COUNTRIES = ["All", "India", "USA", "UK", "Canada", "Australia"];
+const DESIGNATIONS = ["All", "Developer", "Manager", "Director", "VP", "CXO"];
 
 const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
     const [filters, setFilters] = useState<FilterState>(initialFilters);
@@ -40,7 +32,7 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
     }, [filters]);
 
     const handleChange = (key: keyof FilterState, value: string) => {
-        const newFilters = { ...filters, [key]: value };
+        const newFilters = { ...filters, [key]: value === "All" ? "" : value };
         setFilters(newFilters);
         onFilter(newFilters);
     };
@@ -48,12 +40,6 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
     const handleReset = () => {
         setFilters(initialFilters);
         onFilter(initialFilters);
-    };
-
-    // Get unique values from mock data
-    const getUniqueValues = (key: keyof Contact) => {
-        const uniqueValues = new Set(MOCK_CONTACTS.map(contact => contact[key] as string));
-        return ["All", ...Array.from(uniqueValues)].sort();
     };
 
     return (
@@ -100,17 +86,17 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
             {/* Filter Content */}
             <div className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="p-4 space-y-6">
-                    {/* Search Input */}
+                    {/* Company Name Input */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Search Contacts
+                            Company Name
                         </label>
                         <div className="relative">
                             <input
-                                value={filters.search}
-                                onChange={(e) => handleChange("search", e.target.value)}
+                                value={filters.company_name}
+                                onChange={(e) => handleChange("company_name", e.target.value)}
                                 className="w-full border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow pl-10"
-                                placeholder="Company or person name..."
+                                placeholder="Enter company name..."
                             />
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                         </div>
@@ -118,76 +104,36 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
 
                     {/* Filter Groups */}
                     <div className="space-y-6">
-                        {/* Location Group */}
+                        {/* Designation */}
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-900 mb-3">Location</h3>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Designation
+                            </label>
                             <select
-                                value={filters.country}
-                                onChange={(e) => handleChange("country", e.target.value)}
+                                value={filters.designation || "All"}
+                                onChange={(e) => handleChange("designation", e.target.value)}
                                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white"
                             >
-                                {getUniqueValues("country").map((country: string) => (
-                                    <option key={country} value={country}>{country}</option>
+                                {DESIGNATIONS.map(designation => (
+                                    <option key={designation} value={designation}>{designation}</option>
                                 ))}
                             </select>
                         </div>
 
-                        {/* Company Info Group */}
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-gray-900 mb-3">Company Information</h3>
-                            <div>
-                                <label className="block text-xs text-gray-500 mb-1">Industry</label>
-                                <select
-                                    value={filters.industry}
-                                    onChange={(e) => handleChange("industry", e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white"
-                                >
-                                    {getUniqueValues("industry").map((industry: string) => (
-                                        <option key={industry} value={industry}>{industry}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs text-gray-500 mb-1">Company Size</label>
-                                <select
-                                    value={filters.companySize}
-                                    onChange={(e) => handleChange("companySize", e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white"
-                                >
-                                    {COMPANY_SIZES.map(size => (
-                                        <option key={size} value={size}>{size}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Contact Info Group */}
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-gray-900 mb-3">Contact Information</h3>
-                            <div>
-                                <label className="block text-xs text-gray-500 mb-1">Department</label>
-                                <select
-                                    value={filters.department}
-                                    onChange={(e) => handleChange("department", e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white"
-                                >
-                                    {getUniqueValues("department").map((department: string) => (
-                                        <option key={department} value={department}>{department}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs text-gray-500 mb-1">Status</label>
-                                <select
-                                    value={filters.status}
-                                    onChange={(e) => handleChange("status", e.target.value)}
-                                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white"
-                                >
-                                    {STATUSES.map(status => (
-                                        <option key={status} value={status}>{status}</option>
-                                    ))}
-                                </select>
-                            </div>
+                        {/* Country */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Country
+                            </label>
+                            <select
+                                value={filters.person_country || "All"}
+                                onChange={(e) => handleChange("person_country", e.target.value)}
+                                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white"
+                            >
+                                {COUNTRIES.map(country => (
+                                    <option key={country} value={country}>{country}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </div>

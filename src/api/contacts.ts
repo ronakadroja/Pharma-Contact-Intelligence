@@ -118,4 +118,49 @@ export const updateContactStatus = async (id: string, status: 'Active' | 'Inacti
         console.error('Error updating contact status:', error);
         throw error;
     }
+};
+
+export interface RevealContactResponse {
+    contact: Contact;
+    available_credit: number;
+}
+
+export const revealContact = async (id: string): Promise<number> => {
+    try {
+        const response = await api.post<RevealContactResponse>(`/contacts/${id}/reveal`);
+        return response.data.available_credit;
+    } catch (error) {
+        console.error('Error revealing contact:', error);
+        throw error;
+    }
+};
+
+export interface SavedContactsResponse {
+    available_credit: string;
+    my_list: Array<{
+        company_name: string;
+        person_name: string;
+        department: string;
+        designation: string;
+        company_type: string | null;
+        email: string;
+        phone_number: string;
+        city: string;
+        person_country: string;
+        company_country: string;
+        person_linkedin_url: string | null;
+        company_linkedin_url: string | null;
+        company_website: string | null;
+        status: 'Active' | 'Inactive';
+    }>;
+}
+
+export const getSavedContacts = async (): Promise<SavedContactsResponse> => {
+    try {
+        const response = await api.get<SavedContactsResponse>('/contacts/saved/list');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching saved contacts:', error);
+        throw error;
+    }
 }; 

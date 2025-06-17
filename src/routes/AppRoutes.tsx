@@ -129,7 +129,7 @@ const AppRoutes = () => {
                                 } />
                                 <Route path="my-list" element={
                                     <PageTransition>
-                                        <ListingPage />
+                                        <MyListPage />
                                     </PageTransition>
                                 } />
                             </Routes>

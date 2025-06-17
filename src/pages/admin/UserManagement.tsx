@@ -3,6 +3,9 @@ import { getUsers, deleteUser, updateUserStatus, updateUserRole } from '../../ap
 import UserCreationForm from '../../components/UserCreationForm';
 import { useToast } from '../../context/ToastContext';
 import type { User } from '../../types/auth';
+import Table from '../../components/Table';
+import Pagination from '../../components/Pagination';
+import LoadingState from '../../components/LoadingState';
 import {
     Trash2,
     PencilIcon,
@@ -13,28 +16,27 @@ import {
     ChevronUp,
     ArrowUpDown,
     Clock,
-    Filter
+    Filter,
+    Plus
 } from 'lucide-react';
 import {
-    useReactTable,
-    getCoreRowModel,
-    getSortedRowModel,
-    getPaginationRowModel,
-    getFilteredRowModel,
     createColumnHelper,
     type SortingState,
-    type ColumnDef
+    type ColumnDef,
+    type RowSelectionState
 } from '@tanstack/react-table';
 import { CSVLink } from 'react-csv';
 import { format } from 'date-fns';
 import classNames from 'classnames';
 
 interface UserWithStatus extends User {
-    status: 'active' | 'inactive';
+    status: 'Active' | 'Deactive';
     lastActive?: string;
 }
 
 const columnHelper = createColumnHelper<UserWithStatus>();
+
+const ITEMS_PER_PAGE = 10;
 
 const UserManagement = () => {
     const [users, setUsers] = useState<UserWithStatus[]>([]);
@@ -44,7 +46,7 @@ const UserManagement = () => {
     const [selectedUser, setSelectedUser] = useState<UserWithStatus | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
-    const [selectedRows, setSelectedRows] = useState<string[]>([]);
+    const [selectedRows, setSelectedRows] = useState<RowSelectionState>({});
     const [showFilters, setShowFilters] = useState(false);
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -96,7 +98,7 @@ const UserManagement = () => {
             columnHelper.accessor('status', {
                 header: 'Status',
                 cell: (info) => (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.getValue() === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.getValue() === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
                         {info.getValue()}
                     </span>
@@ -130,48 +132,19 @@ const UserManagement = () => {
         []
     );
 
-    const table = useReactTable({
-        data: users,
-        columns,
-        state: {
-            sorting,
-            globalFilter,
-            rowSelection: selectedRows.reduce((acc, id) => ({ ...acc, [id]: true }), {}),
-        },
-        enableRowSelection: true,
-        onRowSelectionChange: (updater) => {
-            const newSelection = typeof updater === 'function'
-                ? updater(selectedRows.reduce((acc, id) => ({ ...acc, [id]: true }), {}))
-                : updater;
-            setSelectedRows(Object.keys(newSelection).filter(key => newSelection[key]));
-        },
-        onSortingChange: setSorting,
-        onGlobalFilterChange: setGlobalFilter,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-    });
-
     const fetchUsers = async () => {
+        setIsLoading(true);
+        setError(null);
         try {
-            setError(null);
-            setIsLoading(true);
             const response = await getUsers();
-            if (!Array.isArray(response)) {
-                throw new Error('Invalid response format from server');
-            }
-            // Add mock status and lastActive for demonstration
-            const usersWithStatus = response.map(user => ({
+            const usersWithStatus: UserWithStatus[] = response.map(user => ({
                 ...user,
-                status: (Math.random() > 0.3 ? 'active' : 'inactive') as 'active' | 'inactive',
-                lastActive: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
+                status: 'Active',
+                lastActive: new Date().toISOString()
             }));
             setUsers(usersWithStatus);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to fetch users';
-            setError(message);
-            showToast(message, 'error');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to fetch users');
         } finally {
             setIsLoading(false);
         }
@@ -181,11 +154,11 @@ const UserManagement = () => {
         fetchUsers();
     }, []);
 
-    const handleDeleteUser = async (userId: string) => {
+    const handleDeleteUser = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this user?')) return;
 
         try {
-            await deleteUser(userId);
+            await deleteUser(id);
             showToast('User deleted successfully', 'success');
             fetchUsers();
         } catch (error) {
@@ -194,43 +167,41 @@ const UserManagement = () => {
     };
 
     const handleBulkDelete = async () => {
-        if (!window.confirm(`Are you sure you want to delete ${selectedRows.length} users?`)) return;
+        const selectedIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} users?`)) return;
 
         try {
-            await Promise.all(selectedRows.map(id => deleteUser(id)));
-            showToast(`Successfully deleted ${selectedRows.length} users`, 'success');
-            setSelectedRows([]);
+            await Promise.all(selectedIds.map(id => deleteUser(id)));
+            showToast(`Successfully deleted ${selectedIds.length} users`, 'success');
+            setSelectedRows({});
             fetchUsers();
         } catch (error) {
-            showToast('Failed to delete some users', 'error');
+            showToast(error instanceof Error ? error.message : 'Failed to delete users', 'error');
         }
     };
 
-    const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
+    const handleBulkStatusChange = async (status: 'Active' | 'Deactive') => {
+        const selectedIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
         try {
-            await Promise.all(selectedRows.map(id => updateUserStatus(id, status)));
-            showToast(`Successfully updated status for ${selectedRows.length} users`, 'success');
-            setSelectedRows([]);
+            await Promise.all(selectedIds.map(id => updateUserStatus(id, status === 'Active' ? 'active' : 'inactive')));
+            showToast(`Successfully updated status for ${selectedIds.length} users`, 'success');
+            setSelectedRows({});
             fetchUsers();
         } catch (error) {
-            showToast('Failed to update status for some users', 'error');
+            showToast(error instanceof Error ? error.message : 'Failed to update user status', 'error');
         }
     };
 
     const handleBulkRoleChange = async (role: string) => {
+        const selectedIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
         try {
-            await Promise.all(selectedRows.map(id => updateUserRole(id, role)));
-            showToast(`Successfully updated role for ${selectedRows.length} users`, 'success');
-            setSelectedRows([]);
+            await Promise.all(selectedIds.map(id => updateUserRole(id, role)));
+            showToast(`Successfully updated role for ${selectedIds.length} users`, 'success');
+            setSelectedRows({});
             fetchUsers();
         } catch (error) {
-            showToast('Failed to update role for some users', 'error');
+            showToast(error instanceof Error ? error.message : 'Failed to update user role', 'error');
         }
-    };
-
-    const handleAddUser = () => {
-        setSelectedUser(null);
-        setShowModal(true);
     };
 
     const handleEditUser = (user: UserWithStatus) => {
@@ -238,293 +209,207 @@ const UserManagement = () => {
         setShowModal(true);
     };
 
-    const csvData = users.map(user => ({
-        Name: user.name,
-        Email: user.email,
-        Company: user.company,
-        Role: user.role,
-        Credits: user.credits,
-        Status: user.status,
-        'Last Active': user.lastActive ? format(new Date(user.lastActive), 'MMM dd, yyyy HH:mm') : 'Never'
-    }));
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setSelectedUser(null);
+    };
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
-                <p className="text-red-600 mb-4">{error}</p>
-                <button
-                    onClick={fetchUsers}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                    Retry
-                </button>
-            </div>
-        );
-    }
+    const handleSuccess = () => {
+        handleCloseModal();
+        fetchUsers();
+    };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 className="text-xl font-semibold text-gray-900">Manage Users</h2>
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            value={globalFilter}
-                            onChange={e => setGlobalFilter(e.target.value)}
-                            placeholder="Search users..."
-                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+        <div className="min-h-screen bg-gray-50 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-lg shadow-sm mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">Manage Users</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Add, edit, or remove user accounts and manage their permissions.
+                        </p>
                     </div>
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                        <Filter className="h-4 w-4 mr-2" />
-                        Filters
-                    </button>
-                    <CSVLink
-                        data={csvData}
-                        filename={`users-${format(new Date(), 'yyyy-MM-dd')}.csv`}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                    </CSVLink>
-                    <button
-                        onClick={handleAddUser}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                        Add User
-                    </button>
-                </div>
-            </div>
-
-            {showFilters && (
-                <div className="bg-white p-4 rounded-lg shadow space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Role</label>
-                            <select
-                                value={roleFilter}
-                                onChange={(e) => setRoleFilter(e.target.value)}
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                            >
-                                <option value="all">All Roles</option>
-                                <option value="admin">Admin</option>
-                                <option value="user">User</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Status</label>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {selectedRows.length > 0 && (
-                <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
-                    <span className="text-sm text-blue-700">{selectedRows.length} users selected</span>
-                    <div className="flex gap-2">
-                        <select
-                            onChange={(e) => handleBulkRoleChange(e.target.value)}
-                            className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="">Change Role</option>
-                            <option value="admin">Admin</option>
-                            <option value="user">User</option>
-                        </select>
-                        <select
-                            onChange={(e) => handleBulkStatusChange(e.target.value as 'active' | 'inactive')}
-                            className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="">Change Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
+                    <div className="flex flex-col sm:flex-row gap-3">
                         <button
-                            onClick={handleBulkDelete}
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            onClick={() => {
+                                setSelectedUser(null);
+                                setShowModal(true);
+                            }}
+                            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
-                            Delete Selected
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add User
                         </button>
+                        <CSVLink
+                            data={users}
+                            filename={`users-${format(new Date(), 'yyyy-MM-dd')}.csv`}
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export CSV
+                        </CSVLink>
                     </div>
                 </div>
-            )}
 
-            {users.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-6 text-center">
-                    <p className="text-gray-500">No users found.</p>
-                </div>
-            ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                {table.getHeaderGroups().map(headerGroup => (
-                                    <tr key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => (
-                                            <th
-                                                key={header.id}
-                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                            >
-                                                {header.isPlaceholder ? null : (
-                                                    <div
-                                                        className={classNames(
-                                                            'flex items-center gap-1',
-                                                            header.column.getCanSort() ? 'cursor-pointer select-none' : ''
-                                                        )}
-                                                        onClick={header.column.getToggleSortingHandler()}
-                                                    >
-                                                        {typeof header.column.columnDef.header === 'string'
-                                                            ? header.column.columnDef.header
-                                                            : null}
-                                                        {{
-                                                            asc: <ChevronUp className="h-4 w-4" />,
-                                                            desc: <ChevronDown className="h-4 w-4" />
-                                                        }[header.column.getIsSorted() as string] ?? (
-                                                                header.column.getCanSort() && <ArrowUpDown className="h-4 w-4" />
-                                                            )}
-                                                    </div>
-                                                )}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="hover:bg-gray-50">
-                                        {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {typeof cell.column.columnDef.cell === 'function'
-                                                    ? cell.column.columnDef.cell({ ...cell.getContext(), getValue: () => cell.getValue() })
-                                                    : cell.getValue()}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
-                        <div className="flex-1 flex justify-between sm:hidden">
-                            <button
-                                onClick={() => table.previousPage()}
-                                disabled={!table.getCanPreviousPage()}
-                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                            >
-                                Previous
-                            </button>
-                            <button
-                                onClick={() => table.nextPage()}
-                                disabled={!table.getCanNextPage()}
-                                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                            >
-                                Next
-                            </button>
-                        </div>
-                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                            <div>
-                                <p className="text-sm text-gray-700">
-                                    Showing{' '}
-                                    <span className="font-medium">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span>
-                                    {' '}-{' '}
-                                    <span className="font-medium">
-                                        {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getPrePaginationRowModel().rows.length)}
-                                    </span>
-                                    {' '}of{' '}
-                                    <span className="font-medium">{table.getPrePaginationRowModel().rows.length}</span>
-                                    {' '}results
-                                </p>
+                {/* Search and Filter Section */}
+                <div className="bg-white rounded-lg shadow-sm mb-6">
+                    <div className="p-6 border-b border-gray-200">
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={globalFilter || ''}
+                                        onChange={e => setGlobalFilter(e.target.value)}
+                                        placeholder="Search users..."
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                </div>
                             </div>
-                            <div>
-                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                    <button
-                                        onClick={() => table.setPageIndex(0)}
-                                        disabled={!table.getCanPreviousPage()}
-                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                                    >
-                                        First
-                                    </button>
-                                    <button
-                                        onClick={() => table.previousPage()}
-                                        disabled={!table.getCanPreviousPage()}
-                                        className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                                    >
-                                        Previous
-                                    </button>
-                                    <button
-                                        onClick={() => table.nextPage()}
-                                        disabled={!table.getCanNextPage()}
-                                        className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                                    >
-                                        Next
-                                    </button>
-                                    <button
-                                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                                        disabled={!table.getCanNextPage()}
-                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                                    >
-                                        Last
-                                    </button>
-                                </nav>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showModal && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className="relative min-h-screen flex items-center justify-center p-4">
-                        <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
-                            <div className="absolute top-0 right-0 pt-4 pr-4">
+                            <div className="flex items-center gap-4">
                                 <button
-                                    onClick={() => {
-                                        setShowModal(false);
-                                        setSelectedUser(null);
-                                    }}
-                                    className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                 >
-                                    <X size={20} />
+                                    <Filter className="h-4 w-4 mr-2" />
+                                    Filters
+                                    {(roleFilter !== 'all' || statusFilter !== 'all') && (
+                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {[
+                                                roleFilter !== 'all' && 'Role',
+                                                statusFilter !== 'all' && 'Status'
+                                            ].filter(Boolean).length}
+                                        </span>
+                                    )}
                                 </button>
                             </div>
-                            <UserCreationForm
-                                user={selectedUser}
-                                onSuccess={() => {
-                                    setShowModal(false);
-                                    setSelectedUser(null);
-                                    fetchUsers();
-                                }}
-                                onCancel={() => {
-                                    setShowModal(false);
-                                    setSelectedUser(null);
-                                }}
-                            />
                         </div>
                     </div>
+
+                    {/* Filter Panel */}
+                    {showFilters && (
+                        <div className="p-6 bg-gray-50 border-b border-gray-200">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                                    <select
+                                        value={roleFilter}
+                                        onChange={(e) => setRoleFilter(e.target.value)}
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="all">All Roles</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="user">User</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="all">All Status</option>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/* Table Section */}
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    {/* Bulk Actions */}
+                    {Object.keys(selectedRows).filter(id => selectedRows[id]).length > 0 && (
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-700">
+                                    {Object.keys(selectedRows).filter(id => selectedRows[id]).length} users selected
+                                </span>
+                                <div className="flex items-center space-x-3">
+                                    <button
+                                        onClick={() => handleBulkStatusChange('Active')}
+                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                    >
+                                        Activate
+                                    </button>
+                                    <button
+                                        onClick={() => handleBulkStatusChange('Deactive')}
+                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                                    >
+                                        Deactivate
+                                    </button>
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Table */}
+                    <Table
+                        data={users}
+                        columns={columns}
+                        isLoading={isLoading}
+                        sorting={sorting}
+                        onSortingChange={setSorting}
+                        enableSelection={true}
+                        selectedRows={selectedRows}
+                        onSelectionChange={setSelectedRows}
+                        emptyStateMessage={error || "No users found"}
+                    />
+
+                    {/* Pagination */}
+                    {!isLoading && !error && users.length > 0 && (
+                        <div className="border-t border-gray-200">
+                            <Pagination
+                                currentPage={1}
+                                totalPages={Math.ceil(users.length / ITEMS_PER_PAGE)}
+                                onPageChange={(page) => {
+                                    // Handle page change
+                                }}
+                                totalItems={users.length}
+                                pageSize={ITEMS_PER_PAGE}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* User Creation/Edit Modal */}
+                {showModal && (
+                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                            </div>
+                            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <div className="sm:flex sm:items-start">
+                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                            <div className="mt-4">
+                                                <UserCreationForm
+                                                    user={selectedUser}
+                                                    onSuccess={handleSuccess}
+                                                    onCancel={handleCloseModal}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

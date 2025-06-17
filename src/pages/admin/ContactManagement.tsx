@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Upload, X, Download } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
-    getContacts,
     deleteContact,
+    getContacts,
+    revealContact,
     updateContactStatus,
     type Contact,
     type ContactsResponse
 } from '../../api/contacts';
-import Header from "../../components/Header";
-import Pagination from "../../components/Pagination";
-import ContactForm from '../../components/ContactForm';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
+import ContactForm from '../../components/ContactForm';
+import Pagination from "../../components/Pagination";
+import Table from "../../components/Table";
+import { useToast } from '../../context/ToastContext';
 
 interface ContactFormData {
     companyName: string;
@@ -51,12 +53,87 @@ const ContactManagement = () => {
         department: '',
         designation: '',
     });
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
     const { showToast } = useToast();
     const [error, setError] = useState<string | null>(null);
     const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
     const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
     const [bulkStatusToSet, setBulkStatusToSet] = useState<'Active' | 'Inactive' | null>(null);
-    const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+    const columns: ColumnDef<Contact>[] = [
+        {
+            accessorKey: 'company_name',
+            header: 'Company',
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-sm font-medium text-gray-900">{row.original.company_name}</div>
+                    {row.original.company_website && (
+                        <div className="text-sm text-gray-500">{row.original.company_website}</div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'person_name',
+            header: 'Contact Person',
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-sm text-gray-900">{row.original.person_name}</div>
+                    <div className="text-sm text-gray-500">{row.original.designation}</div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'location',
+            header: 'Location',
+            cell: ({ row }) => (
+                <div className="text-sm text-gray-900">
+                    {row.original.city}, {row.original.person_country}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'department',
+            header: 'Department',
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-sm text-gray-900">{row.original.department}</div>
+                    <div className="text-sm text-gray-500">{row.original.company_type}</div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'status',
+            header: 'Status',
+            cell: ({ row }) => (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${row.original.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                    {row.original.status}
+                </span>
+            ),
+        },
+        {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }) => (
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={() => handleEditContact(row.original)}
+                        className="text-blue-600 hover:text-blue-800"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => handleDeleteClick(row.original)}
+                        className="text-red-600 hover:text-red-800"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
 
     const fetchContacts = async (page: number = 1) => {
         try {
@@ -178,12 +255,15 @@ const ContactManagement = () => {
 
     const handleBulkDeleteConfirm = async () => {
         try {
-            await Promise.all(selectedRows.map(id => deleteContact(id)));
-            showToast(`Successfully deleted ${selectedRows.length} contacts`, 'success');
-            setSelectedRows([]);
+            const selectedIds = Object.entries(selectedRows)
+                .filter(([_, selected]) => selected)
+                .map(([id]) => id);
+            await Promise.all(selectedIds.map(id => deleteContact(id)));
+            showToast(`Successfully deleted ${selectedIds.length} contacts`, 'success');
+            setSelectedRows({});
             fetchContacts(currentPage);
         } catch (error) {
-            showToast('Failed to delete some contacts', 'error');
+            showToast(error instanceof Error ? error.message : 'Failed to delete contacts', 'error');
         } finally {
             setShowBulkDeleteConfirmation(false);
         }
@@ -196,17 +276,30 @@ const ContactManagement = () => {
 
     const handleBulkStatusConfirm = async () => {
         if (!bulkStatusToSet) return;
-
         try {
-            await Promise.all(selectedRows.map(id => updateContactStatus(id, bulkStatusToSet)));
-            showToast(`Successfully updated status for ${selectedRows.length} contacts`, 'success');
-            setSelectedRows([]);
+            const selectedIds = Object.entries(selectedRows)
+                .filter(([_, selected]) => selected)
+                .map(([id]) => id);
+            await Promise.all(selectedIds.map(id => updateContactStatus(id, bulkStatusToSet)));
+            showToast(`Successfully updated status for ${selectedIds.length} contacts`, 'success');
+            setSelectedRows({});
             fetchContacts(currentPage);
         } catch (error) {
-            showToast('Failed to update status for some contacts', 'error');
+            showToast(error instanceof Error ? error.message : 'Failed to update contact status', 'error');
         } finally {
             setShowBulkStatusConfirmation(false);
             setBulkStatusToSet(null);
+        }
+    };
+
+    const handleRevealContact = async (contact: Contact) => {
+        try {
+            await revealContact(contact.id);
+            showToast('Contact information revealed successfully', 'success');
+            fetchContacts(currentPage); // Refresh the contacts list
+        } catch (error) {
+            console.error('Error revealing contact:', error);
+            showToast('Failed to reveal contact information', 'error');
         }
     };
 
@@ -318,9 +411,11 @@ const ContactManagement = () => {
                 </div>
             </div>
 
-            {selectedRows.length > 0 && (
+            {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
                 <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between mb-4">
-                    <span className="text-sm text-blue-700">{selectedRows.length} contacts selected</span>
+                    <span className="text-sm text-blue-700">
+                        {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
+                    </span>
                     <div className="flex gap-2">
                         <select
                             onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
@@ -343,105 +438,30 @@ const ContactManagement = () => {
 
             {/* Contact Table */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Company
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Contact Person
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Location
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Department
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center">
-                                        <div className="flex justify-center">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : !contactsData?.data?.length ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                                        No contacts found
-                                    </td>
-                                </tr>
-                            ) : (
-                                contactsData.data.map((contact) => (
-                                    <tr key={contact.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{contact.company_name}</div>
-                                            {contact.company_website && (
-                                                <div className="text-sm text-gray-500">{contact.company_website}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{contact.person_name}</div>
-                                            <div className="text-sm text-gray-500">{contact.designation}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{contact.city}, {contact.person_country}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{contact.department}</div>
-                                            <div className="text-sm text-gray-500">{contact.company_type}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${contact.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                {contact.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <div className="flex space-x-3">
-                                                <button
-                                                    onClick={() => handleEditContact(contact)}
-                                                    className="text-blue-600 hover:text-blue-900 transition-colors"
-                                                >
-                                                    <Pencil className="h-5 w-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteClick(contact)}
-                                                    className="text-red-600 hover:text-red-900 transition-colors"
-                                                >
-                                                    <Trash2 className="h-5 w-5" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <Table
+                    data={contactsData?.data || []}
+                    columns={columns}
+                    isLoading={loading}
+                    sorting={sorting}
+                    onSortingChange={setSorting}
+                    enableSelection={true}
+                    selectedRows={selectedRows}
+                    onSelectionChange={setSelectedRows}
+                    emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
+                />
 
-                {/* Pagination */}
                 {contactsData && contactsData.last_page > 1 && (
-                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3">
                         <div className="text-sm text-gray-500">
                             Showing page {currentPage} of {contactsData.last_page}
                         </div>
                         <Pagination
-                            total={contactsData.total}
-                            perPage={10}
                             currentPage={currentPage}
+                            totalPages={contactsData.last_page}
                             onPageChange={setCurrentPage}
+                            totalItems={contactsData.total}
+                            pageSize={10}
+                            showTotalItems={true}
                         />
                     </div>
                 )}
@@ -466,7 +486,7 @@ const ContactManagement = () => {
             <ConfirmationDialog
                 isOpen={showBulkDeleteConfirmation}
                 title="Delete Multiple Contacts"
-                message={`Are you sure you want to delete ${selectedRows.length} contacts? This action cannot be undone.`}
+                message={`Are you sure you want to delete ${Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts? This action cannot be undone.`}
                 confirmLabel="Delete All"
                 cancelLabel="Cancel"
                 confirmVariant="danger"
@@ -478,7 +498,7 @@ const ContactManagement = () => {
             <ConfirmationDialog
                 isOpen={showBulkStatusConfirmation}
                 title="Update Contact Status"
-                message={`Are you sure you want to set ${selectedRows.length} contacts to ${bulkStatusToSet} status?`}
+                message={`Are you sure you want to set ${Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts to ${bulkStatusToSet} status?`}
                 confirmLabel="Update All"
                 cancelLabel="Cancel"
                 confirmVariant="warning"
