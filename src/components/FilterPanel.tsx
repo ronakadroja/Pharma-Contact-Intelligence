@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Filter, ChevronDown, ChevronUp, Search } from "lucide-react";
+import useDebounce from "../hooks/useDebounce";
 
 interface FilterState {
     company_name: string;
@@ -23,13 +24,20 @@ const DESIGNATIONS = ["All", "Developer", "Manager", "Director", "VP", "CXO"];
 
 const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
     const [filters, setFilters] = useState<FilterState>(initialFilters);
+    const [localCompanyName, setLocalCompanyName] = useState("");
     const [isOpen, setIsOpen] = useState(true);
     const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+
+    const debouncedCompanyName = useDebounce(localCompanyName, 500);
 
     useEffect(() => {
         const count = Object.values(filters).filter(value => value !== "" && value !== "All").length;
         setActiveFiltersCount(count);
     }, [filters]);
+
+    useEffect(() => {
+        handleChange("company_name", debouncedCompanyName);
+    }, [debouncedCompanyName]);
 
     const handleChange = (key: keyof FilterState, value: string) => {
         const newFilters = { ...filters, [key]: value === "All" ? "" : value };
@@ -93,8 +101,8 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
                         </label>
                         <div className="relative">
                             <input
-                                value={filters.company_name}
-                                onChange={(e) => handleChange("company_name", e.target.value)}
+                                value={localCompanyName}
+                                onChange={(e) => setLocalCompanyName(e.target.value)}
                                 className="w-full border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow pl-10"
                                 placeholder="Enter company name..."
                             />

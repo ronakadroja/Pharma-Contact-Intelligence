@@ -343,24 +343,24 @@ const ContactManagement = () => {
 
     return (
         <div>
-            <div className="mb-6 flex justify-between items-center">
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                 <div>
                     <h2 className="text-lg font-medium text-gray-900">Contact Management</h2>
                     <p className="mt-1 text-sm text-gray-600">
                         Manage pharmaceutical industry contacts
                     </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                     <button
                         onClick={handleExportContacts}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm sm:text-base"
                     >
-                        <Download size={20} />
-                        Export
+                        <Download size={18} className="sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">Export</span>
                     </button>
-                    <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer">
-                        <Upload size={20} />
-                        Bulk Upload
+                    <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer text-sm sm:text-base">
+                        <Upload size={18} className="sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">Bulk Upload</span>
                         <input
                             type="file"
                             accept=".csv,.xlsx"
@@ -370,10 +370,10 @@ const ContactManagement = () => {
                     </label>
                     <button
                         onClick={handleAddContact}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
                     >
-                        <Plus size={20} />
-                        Add Contact
+                        <Plus size={18} className="sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">Add Contact</span>
                     </button>
                 </div>
             </div>
@@ -382,10 +382,10 @@ const ContactManagement = () => {
             <div className="mb-4">
                 <button
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="inline-flex items-center px-4 py-2.5 bg-white border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-white border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                 >
                     <Filter className={`h-4 w-4 mr-2 ${isFilterOpen ? 'text-blue-600' : 'text-gray-500'}`} />
-                    Filters
+                    <span className="hidden sm:inline">Filters</span>
                     {isFilterOpen ? (
                         <ChevronUp className="ml-2 h-4 w-4 text-gray-500" />
                     ) : (
@@ -402,12 +402,12 @@ const ContactManagement = () => {
             {/* Search Form */}
             <div className={`mb-6 transition-all duration-300 ease-in-out ${isFilterOpen ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div className="p-6 border-b border-gray-200 bg-gray-50">
-                        <h3 className="text-lg font-medium text-gray-900">Filter Contacts</h3>
-                        <p className="mt-1 text-sm text-gray-500">Use the filters below to find specific contacts</p>
+                    <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900">Filter Contacts</h3>
+                        <p className="mt-1 text-xs sm:text-sm text-gray-500">Use the filters below to find specific contacts</p>
                     </div>
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="p-4 sm:p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                             <div className="space-y-2">
                                 <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">
                                     Company Name
@@ -422,7 +422,7 @@ const ContactManagement = () => {
                                         type="text"
                                         id="company_name"
                                         placeholder="Enter company name"
-                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
                                         value={searchParams.company_name}
                                         onChange={(e) => setSearchParams(prev => ({
                                             ...prev,
@@ -446,7 +446,7 @@ const ContactManagement = () => {
                                         type="text"
                                         id="designation"
                                         placeholder="Enter designation"
-                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
                                         value={searchParams.designation}
                                         onChange={(e) => setSearchParams(prev => ({
                                             ...prev,
@@ -470,7 +470,7 @@ const ContactManagement = () => {
                                         type="text"
                                         id="country"
                                         placeholder="Enter country"
-                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
                                         value={searchParams.person_country}
                                         onChange={(e) => setSearchParams(prev => ({
                                             ...prev,
@@ -494,7 +494,7 @@ const ContactManagement = () => {
                                         type="text"
                                         id="city"
                                         placeholder="Enter city"
-                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
                                         value={searchParams.city}
                                         onChange={(e) => setSearchParams(prev => ({
                                             ...prev,

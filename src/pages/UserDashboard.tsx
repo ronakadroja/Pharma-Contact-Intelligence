@@ -17,9 +17,9 @@ const UserDashboard = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex items-center">
-                            <h1 className="text-2xl font-bold text-gray-900">User Dashboard</h1>
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">User Dashboard</h1>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="hidden sm:flex items-center gap-4">
                             <div className="flex items-center gap-2 text-gray-700">
                                 <CreditCard size={18} />
                                 <span>{coins} credits remaining</span>
@@ -31,6 +31,20 @@ const UserDashboard = () => {
                             >
                                 <LogOut size={18} />
                                 Logout
+                            </button>
+                        </div>
+                        {/* Mobile Menu Button */}
+                        <div className="sm:hidden flex items-center gap-2">
+                            <div className="flex items-center gap-1 text-gray-700">
+                                <CreditCard size={18} />
+                                <span className="text-sm">{coins}</span>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-1 px-2 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                            >
+                                <LogOut size={16} />
+                                <span className="hidden">Logout</span>
                             </button>
                         </div>
                     </div>

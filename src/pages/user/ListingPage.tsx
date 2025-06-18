@@ -1,16 +1,13 @@
-import Header from "../../components/Header";
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { Filter, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getContacts, revealContact, type Contact as APIContact, type ContactsResponse } from "../../api/contacts";
 import FilterPanel from "../../components/FilterPanel";
-import Table from "../../components/Table";
+import Header from "../../components/Header";
 import Pagination from "../../components/Pagination";
-import { useState, useEffect } from "react";
-import { useToast } from "../../context/ToastContext";
-import { Filter, X, Plus } from "lucide-react";
-import classNames from "classnames";
-import { getContacts, revealContact, type Contact as APIContact, type ContactsResponse, type RevealContactResponse } from "../../api/contacts";
-import type { Contact } from "../../types";
-import type { ColumnDef } from '@tanstack/react-table';
-import type { SortingState } from '@tanstack/react-table';
+import Table from "../../components/Table";
 import { useAppContext } from "../../context/AppContext";
+import { useToast } from "../../context/ToastContext";
 
 interface FilterState {
     company_name: string;
@@ -174,11 +171,11 @@ const ListingPage = () => {
         <div className="min-h-screen bg-gray-50">
             <Header />
 
-            {/* Mobile Filter Button */}
+            {/* Mobile Filter Button - Only visible on mobile */}
             <div className="lg:hidden sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 py-3">
                     <button
-                        onClick={() => setShowMobileFilters(true)}
+                        onClick={() => setShowMobileFilters((prev) => !prev)}
                         className="flex items-center justify-center w-full gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     >
                         <Filter size={16} />
@@ -190,32 +187,25 @@ const ListingPage = () => {
                 </div>
             </div>
 
-            {/* Mobile Filter Overlay */}
-            {showMobileFilters && (
-                <div className="fixed inset-0 z-40 lg:hidden">
-                    <div className="fixed inset-0 bg-black bg-opacity-25 backdrop-blur-sm" onClick={() => setShowMobileFilters(false)} />
-                    <div className="fixed inset-y-0 right-0 w-full max-w-xs bg-white shadow-xl">
-                        <div className="flex flex-col h-full">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                                <h2 className="text-lg font-medium text-gray-900">Filters</h2>
-                                <button
-                                    onClick={() => setShowMobileFilters(false)}
-                                    className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
-                                >
-                                    <X size={24} />
-                                </button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4">
-                                <FilterPanel onFilter={handleFilter} isMobile={true} />
-                            </div>
-                        </div>
+            {/* Mobile Filter Panel - Inline, not overlay */}
+            <div className={`lg:hidden transition-all duration-300 ${showMobileFilters ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+                <div className="bg-white border-b border-gray-200 px-4 py-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-lg font-medium text-gray-900">Filters</h2>
+                        <button
+                            onClick={() => setShowMobileFilters(false)}
+                            className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                        >
+                            <X size={24} />
+                        </button>
                     </div>
+                    <FilterPanel onFilter={handleFilter} isMobile={true} />
                 </div>
-            )}
+            </div>
 
             <div className="max-w-[90rem] mx-auto px-4 py-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Sidebar with filters - Desktop */}
+                    {/* Sidebar with filters - Only visible on desktop */}
                     <div className="hidden lg:block w-72 flex-shrink-0">
                         <div className="sticky top-4 space-y-6">
                             <FilterPanel onFilter={handleFilter} isMobile={false} />
@@ -239,7 +229,7 @@ const ListingPage = () => {
                         </div>
                     </div>
 
-                    {/* Main content */}
+                    {/* Main content - Responsive for both desktop and mobile */}
                     <div className="flex-1 min-w-0">
                         <div className="bg-white rounded-lg shadow-md">
                             <div className="border-b border-gray-200 px-6 py-4">
