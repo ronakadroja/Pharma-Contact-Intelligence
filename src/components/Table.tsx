@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -12,7 +12,7 @@ import {
     type RowSelectionState
 } from '@tanstack/react-table';
 import { ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
-import LoadingState from './LoadingState';
+import Loader from './ui/Loader';
 
 interface TableProps<T> {
     data: T[];
@@ -39,9 +39,12 @@ function Table<T>({
     onSelectionChange,
     emptyStateMessage = 'No data available'
 }: TableProps<T>) {
+    const memoizedColumns = useMemo(() => columns, [columns]);
+    const memoizedData = useMemo(() => data, [data]);
+
     const table = useReactTable({
-        data,
-        columns,
+        data: memoizedData,
+        columns: memoizedColumns,
         state: {
             sorting,
             rowSelection: selectedRows,
@@ -56,7 +59,7 @@ function Table<T>({
     });
 
     if (isLoading) {
-        return <LoadingState size="small" />;
+        return <Loader variant="skeleton" />;
     }
 
     if (!data.length) {
@@ -80,7 +83,7 @@ function Table<T>({
                                 >
                                     {header.isPlaceholder ? null : (
                                         <div
-                                            className={`flex items-center gap-2 ${enableSorting && header.column.getCanSort()
+                                            className={`flex items-center ${enableSorting && header.column.getCanSort()
                                                 ? 'cursor-pointer select-none'
                                                 : ''
                                                 }`}
@@ -91,14 +94,13 @@ function Table<T>({
                                                 header.getContext()
                                             )}
                                             {enableSorting && header.column.getCanSort() && (
-                                                <span className="inline-flex">
-                                                    {header.column.getIsSorted() === 'asc' ? (
-                                                        <ChevronUp className="h-4 w-4" />
-                                                    ) : header.column.getIsSorted() === 'desc' ? (
-                                                        <ChevronDown className="h-4 w-4" />
-                                                    ) : (
-                                                        <ArrowUpDown className="h-4 w-4" />
-                                                    )}
+                                                <span className="ml-2">
+                                                    {{
+                                                        asc: <ChevronUp className="h-4 w-4" />,
+                                                        desc: <ChevronDown className="h-4 w-4" />
+                                                    }[header.column.getIsSorted() as string] ?? (
+                                                            <ArrowUpDown className="h-4 w-4" />
+                                                        )}
                                                 </span>
                                             )}
                                         </div>
@@ -110,20 +112,13 @@ function Table<T>({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                     {table.getRowModel().rows.map(row => (
-                        <tr
-                            key={row.id}
-                            className={`hover:bg-gray-50 ${row.getIsSelected() ? 'bg-blue-50' : ''
-                                }`}
-                        >
+                        <tr key={row.id}>
                             {row.getVisibleCells().map(cell => (
                                 <td
                                     key={cell.id}
                                     className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
                                 >
-                                    {flexRender(
-                                        cell.column.columnDef.cell,
-                                        cell.getContext()
-                                    )}
+                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                 </td>
                             ))}
                         </tr>
@@ -134,4 +129,4 @@ function Table<T>({
     );
 }
 
-export default Table;
+export default React.memo(Table) as typeof Table;

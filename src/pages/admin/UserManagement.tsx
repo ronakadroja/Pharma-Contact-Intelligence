@@ -323,62 +323,108 @@ const UserManagement = () => {
 
                 {/* Table Section */}
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    {/* Bulk Actions */}
-                    {Object.keys(selectedRows).filter(id => selectedRows[id]).length > 0 && (
-                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-700">
-                                    {Object.keys(selectedRows).filter(id => selectedRows[id]).length} users selected
-                                </span>
-                                <div className="flex items-center space-x-3">
-                                    <button
-                                        onClick={() => handleBulkStatusChange('Active')}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                    >
-                                        Activate
-                                    </button>
-                                    <button
-                                        onClick={() => handleBulkStatusChange('Deactive')}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                                    >
-                                        Deactivate
-                                    </button>
-                                    <button
-                                        onClick={handleBulkDelete}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                                    >
-                                        Delete
-                                    </button>
+                    {/* Bulk Actions - Desktop */}
+                    <div className="hidden sm:block">
+                        {Object.keys(selectedRows).filter(id => selectedRows[id]).length > 0 && (
+                            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-700">
+                                        {Object.keys(selectedRows).filter(id => selectedRows[id]).length} users selected
+                                    </span>
+                                    <div className="flex items-center space-x-3">
+                                        <button
+                                            onClick={() => handleBulkStatusChange('Active')}
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                        >
+                                            Activate
+                                        </button>
+                                        <button
+                                            onClick={() => handleBulkStatusChange('Deactive')}
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                                        >
+                                            Deactivate
+                                        </button>
+                                        <button
+                                            onClick={handleBulkDelete}
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+
+                    {/* Bulk Actions - Mobile */}
+                    <div className="sm:hidden">
+                        {Object.keys(selectedRows).filter(id => selectedRows[id]).length > 0 && (
+                            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <div className="flex flex-col gap-3">
+                                    <span className="text-sm text-gray-700">
+                                        {Object.keys(selectedRows).filter(id => selectedRows[id]).length} users selected
+                                    </span>
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={() => handleBulkStatusChange('Active')}
+                                            className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                        >
+                                            Activate
+                                        </button>
+                                        <button
+                                            onClick={() => handleBulkStatusChange('Deactive')}
+                                            className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                                        >
+                                            Deactivate
+                                        </button>
+                                        <button
+                                            onClick={handleBulkDelete}
+                                            className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Table */}
-                    <Table
-                        data={users}
-                        columns={columns}
-                        isLoading={isLoading}
-                        sorting={sorting}
-                        onSortingChange={setSorting}
-                        enableSelection={true}
-                        selectedRows={selectedRows}
-                        onSelectionChange={setSelectedRows}
-                        emptyStateMessage={error || "No users found"}
-                    />
+                    <div className="overflow-x-auto">
+                        <div className="inline-block min-w-full align-middle">
+                            <div className="overflow-hidden border-b border-gray-200">
+                                <Table
+                                    data={users}
+                                    columns={columns}
+                                    isLoading={isLoading}
+                                    sorting={sorting}
+                                    onSortingChange={setSorting}
+                                    enableSelection={true}
+                                    selectedRows={selectedRows}
+                                    onSelectionChange={setSelectedRows}
+                                    emptyStateMessage={error || "No users found"}
+                                />
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Pagination */}
                     {!isLoading && !error && users.length > 0 && (
-                        <div className="border-t border-gray-200">
-                            <Pagination
-                                currentPage={1}
-                                totalPages={Math.ceil(users.length / ITEMS_PER_PAGE)}
-                                onPageChange={(page) => {
-                                    // Handle page change
-                                }}
-                                totalItems={users.length}
-                                pageSize={ITEMS_PER_PAGE}
-                            />
+                        <div className="border-t border-gray-200 px-4 py-3 sm:px-6">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div className="text-sm text-gray-700 w-full sm:w-auto text-center sm:text-left">
+                                    Showing {Math.min(ITEMS_PER_PAGE, users.length)} of {users.length} users
+                                </div>
+                                <Pagination
+                                    currentPage={1}
+                                    totalPages={Math.ceil(users.length / ITEMS_PER_PAGE)}
+                                    onPageChange={(page) => {
+                                        // Handle page change
+                                    }}
+                                    totalItems={users.length}
+                                    pageSize={ITEMS_PER_PAGE}
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

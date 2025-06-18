@@ -163,4 +163,34 @@ export const getSavedContacts = async (): Promise<SavedContactsResponse> => {
         console.error('Error fetching saved contacts:', error);
         throw error;
     }
+};
+
+export interface BulkImportError {
+    row: number;
+    message: string;
+}
+
+export interface BulkImportResponse {
+    success?: number;
+    failure?: number;
+    erros?: BulkImportError[];
+    file?: string[];
+    message?: string;
+}
+
+export const bulkImportContacts = async (file: File): Promise<BulkImportResponse> => {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await api.post<BulkImportResponse>('/contacts/bulk/import', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error importing contacts:', error);
+        throw error;
+    }
 }; 

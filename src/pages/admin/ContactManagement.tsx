@@ -1,11 +1,12 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, Upload, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
     deleteContact,
     getContacts,
     revealContact,
     updateContactStatus,
+    bulkImportContacts,
     type Contact,
     type ContactsResponse
 } from '../../api/contacts';
@@ -26,8 +27,6 @@ interface ContactFormData {
     designation: string;
 }
 
-const departments = ['Sales', 'Purchase', 'Supply Chain', 'Marketing', 'R&D'];
-const countries = ['USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'India'];
 
 const ContactManagement = () => {
     const [contactsData, setContactsData] = useState<ContactsResponse | null>(null);
@@ -60,6 +59,7 @@ const ContactManagement = () => {
     const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
     const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
     const [bulkStatusToSet, setBulkStatusToSet] = useState<'Active' | 'Inactive' | null>(null);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     const columns: ColumnDef<Contact>[] = [
         {
@@ -135,14 +135,13 @@ const ContactManagement = () => {
         },
     ];
 
-    const fetchContacts = async (page: number = 1) => {
+    const fetchContacts = async (page: number = 1, resetFilters: boolean = false) => {
         try {
             setLoading(true);
             setError(null);
 
-            // Only include search params that have values
             const searchParamsToSend = Object.fromEntries(
-                Object.entries(searchParams).filter(([_, value]) => value.trim() !== '')
+                Object.entries(resetFilters ? {} : searchParams).filter(([_, value]) => value && value.trim() !== '')
             );
 
             const response = await getContacts({
@@ -155,7 +154,6 @@ const ContactManagement = () => {
             console.error('Error fetching contacts:', error);
             let errorMessage = 'Failed to fetch contacts';
 
-            // Handle validation errors
             if (error && typeof error === 'object' && 'response' in error) {
                 const responseError = error as { response?: { status: number; data?: any } };
                 if (responseError.response?.status === 422) {
@@ -175,10 +173,6 @@ const ContactManagement = () => {
         fetchContacts(currentPage);
     }, [currentPage]);
 
-    const handleSearch = async () => {
-        setCurrentPage(1);
-        await fetchContacts(1);
-    };
 
     const handleAddContact = () => {
         setSelectedContact(null);
@@ -230,11 +224,55 @@ const ContactManagement = () => {
         }
     };
 
-    const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // TODO: Implement API integration for bulk upload
-            showToast('Bulk upload started. Processing file...', 'info');
+            try {
+                showToast('Bulk upload started. Processing file...', 'info');
+                const response = await bulkImportContacts(file);
+
+                // Handle file validation error
+                if (response.file) {
+                    showToast(response.file[0], 'error');
+                    return;
+                }
+
+                // Handle successful import with or without errors
+                if (response.success !== undefined) {
+                    if (response.failure === 0) {
+                        // Complete success case
+                        showToast(`Successfully imported all ${response.success} contacts`, 'success');
+                    } else {
+                        // Partial success case with errors
+                        showToast(
+                            `Imported ${response.success} contacts with ${response.failure} failures. Check error details below.`,
+                            'warning'
+                        );
+
+                        // If there are specific errors, show them in separate toasts
+                        if (response.erros && response.erros.length > 0) {
+                            response.erros.forEach(error => {
+                                const errorMessage = `Row ${error.row}: ${error.message.includes('SQLSTATE[23000]')
+                                    ? `Missing required field: ${error.message.match(/Column '(.+?)' cannot/)?.[1] || 'unknown field'}`
+                                    : error.message
+                                    }`;
+                                showToast(errorMessage, 'error');
+                            });
+                        }
+                    }
+
+                    // Refresh the contacts list after import
+                    fetchContacts(currentPage);
+                }
+            } catch (error) {
+                showToast(
+                    error instanceof Error ? error.message : 'Failed to import contacts',
+                    'error'
+                );
+            } finally {
+                // Reset the file input
+                e.target.value = '';
+            }
         }
     };
 
@@ -340,129 +378,267 @@ const ContactManagement = () => {
                 </div>
             </div>
 
+            {/* Filter Toggle Button */}
+            <div className="mb-4">
+                <button
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className="inline-flex items-center px-4 py-2.5 bg-white border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                >
+                    <Filter className={`h-4 w-4 mr-2 ${isFilterOpen ? 'text-blue-600' : 'text-gray-500'}`} />
+                    Filters
+                    {isFilterOpen ? (
+                        <ChevronUp className="ml-2 h-4 w-4 text-gray-500" />
+                    ) : (
+                        <ChevronDown className="ml-2 h-4 w-4 text-gray-500" />
+                    )}
+                    {Object.values(searchParams).some(param => param !== '') && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {Object.values(searchParams).filter(param => param !== '').length}
+                        </span>
+                    )}
+                </button>
+            </div>
+
             {/* Search Form */}
-            <div className="mb-6 bg-white p-4 rounded-lg shadow">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <input
-                        type="text"
-                        placeholder="Company Name"
-                        className="border rounded px-3 py-2"
-                        value={searchParams.company_name}
-                        onChange={(e) => setSearchParams(prev => ({
-                            ...prev,
-                            company_name: e.target.value.trim()
-                        }))}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Designation"
-                        className="border rounded px-3 py-2"
-                        value={searchParams.designation}
-                        onChange={(e) => setSearchParams(prev => ({
-                            ...prev,
-                            designation: e.target.value.trim()
-                        }))}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Country"
-                        className="border rounded px-3 py-2"
-                        value={searchParams.person_country}
-                        onChange={(e) => setSearchParams(prev => ({
-                            ...prev,
-                            person_country: e.target.value.trim()
-                        }))}
-                    />
-                    <input
-                        type="text"
-                        placeholder="City"
-                        className="border rounded px-3 py-2"
-                        value={searchParams.city}
-                        onChange={(e) => setSearchParams(prev => ({
-                            ...prev,
-                            city: e.target.value.trim()
-                        }))}
-                    />
-                </div>
-                <div className="mt-4 flex justify-end gap-2">
-                    <button
-                        onClick={() => {
-                            setSearchParams({
-                                company_name: '',
-                                designation: '',
-                                person_country: '',
-                                city: ''
-                            });
-                            fetchContacts(1);
-                        }}
-                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
-                    >
-                        Reset
-                    </button>
-                    <button
-                        onClick={() => {
-                            setCurrentPage(1);
-                            fetchContacts(1);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                        Search
-                    </button>
+            <div className={`mb-6 transition-all duration-300 ease-in-out ${isFilterOpen ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div className="p-6 border-b border-gray-200 bg-gray-50">
+                        <h3 className="text-lg font-medium text-gray-900">Filter Contacts</h3>
+                        <p className="mt-1 text-sm text-gray-500">Use the filters below to find specific contacts</p>
+                    </div>
+                    <div className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="space-y-2">
+                                <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">
+                                    Company Name
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="company_name"
+                                        placeholder="Enter company name"
+                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        value={searchParams.company_name}
+                                        onChange={(e) => setSearchParams(prev => ({
+                                            ...prev,
+                                            company_name: e.target.value.trim()
+                                        }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
+                                    Designation
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="designation"
+                                        placeholder="Enter designation"
+                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        value={searchParams.designation}
+                                        onChange={(e) => setSearchParams(prev => ({
+                                            ...prev,
+                                            designation: e.target.value.trim()
+                                        }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="country" className="block text-sm font-medium text-gray-700">
+                                    Country
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="country"
+                                        placeholder="Enter country"
+                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        value={searchParams.person_country}
+                                        onChange={(e) => setSearchParams(prev => ({
+                                            ...prev,
+                                            person_country: e.target.value.trim()
+                                        }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="city" className="block text-sm font-medium text-gray-700">
+                                    City
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="city"
+                                        placeholder="Enter city"
+                                        className="block w-full pl-10 py-3 text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
+                                        value={searchParams.city}
+                                        onChange={(e) => setSearchParams(prev => ({
+                                            ...prev,
+                                            city: e.target.value.trim()
+                                        }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setSearchParams({
+                                        company_name: '',
+                                        designation: '',
+                                        person_country: '',
+                                        city: ''
+                                    });
+                                    fetchContacts(1, true);
+                                    showToast('All filters have been cleared', 'success');
+                                }}
+                                className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCurrentPage(1);
+                                    fetchContacts(1);
+                                    setIsFilterOpen(false);
+                                }}
+                                className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            >
+                                Apply Filters
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
-                <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between mb-4">
-                    <span className="text-sm text-blue-700">
-                        {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
-                    </span>
-                    <div className="flex gap-2">
-                        <select
-                            onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
-                            className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            value=""
-                        >
-                            <option value="">Change Status</option>
-                            <option value="Active">Set Active</option>
-                            <option value="Inactive">Set Inactive</option>
-                        </select>
-                        <button
-                            onClick={handleBulkDeleteClick}
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                            Delete Selected
-                        </button>
+            {/* Desktop Selected Items Banner */}
+            <div className="hidden sm:block mb-4">
+                {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
+                    <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
+                        <span className="text-sm text-blue-700">
+                            {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
+                        </span>
+                        <div className="flex gap-2">
+                            <select
+                                onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
+                                className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                value=""
+                            >
+                                <option value="">Change Status</option>
+                                <option value="Active">Set Active</option>
+                                <option value="Inactive">Set Inactive</option>
+                            </select>
+                            <button
+                                onClick={handleBulkDeleteClick}
+                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                                Delete Selected
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Contact Table Container */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                {/* Mobile Selected Items Banner */}
+                <div className="block sm:hidden">
+                    {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
+                        <div className="bg-blue-50 px-4 py-3 border-b border-blue-100">
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-blue-700">
+                                        {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2">
+                                    <select
+                                        onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
+                                        className="block w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                        value=""
+                                    >
+                                        <option value="">Change Status</option>
+                                        <option value="Active">Set Active</option>
+                                        <option value="Inactive">Set Inactive</option>
+                                    </select>
+                                    <button
+                                        onClick={handleBulkDeleteClick}
+                                        className="w-full inline-flex justify-center items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm"
+                                    >
+                                        Delete Selected
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Table Wrapper */}
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="inline-block min-w-full align-middle">
+                        <div className="overflow-hidden">
+                            <div className="min-w-full divide-y divide-gray-200">
+                                <Table
+                                    data={contactsData?.data || []}
+                                    columns={columns}
+                                    isLoading={loading}
+                                    sorting={sorting}
+                                    onSortingChange={setSorting}
+                                    enableSelection={true}
+                                    selectedRows={selectedRows}
+                                    onSelectionChange={setSelectedRows}
+                                    emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
 
-            {/* Contact Table */}
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                <Table
-                    data={contactsData?.data || []}
-                    columns={columns}
-                    isLoading={loading}
-                    sorting={sorting}
-                    onSortingChange={setSorting}
-                    enableSelection={true}
-                    selectedRows={selectedRows}
-                    onSelectionChange={setSelectedRows}
-                    emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
-                />
-
+                {/* Responsive Pagination */}
                 {contactsData && contactsData.last_page > 1 && (
-                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3">
-                        <div className="text-sm text-gray-500">
-                            Showing page {currentPage} of {contactsData.last_page}
+                    <div className="border-t border-gray-200">
+                        <div className="px-4 py-3 sm:px-6">
+                            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+                                <div className="text-sm text-gray-700 text-center sm:text-left">
+                                    Showing page {currentPage} of {contactsData.last_page}
+                                </div>
+                                <div className="w-full sm:w-auto flex justify-center">
+                                    <Pagination
+                                        currentPage={currentPage}
+                                        totalPages={contactsData.last_page}
+                                        onPageChange={setCurrentPage}
+                                        totalItems={contactsData.total}
+                                        pageSize={10}
+                                        showTotalItems={true}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                        <Pagination
-                            currentPage={currentPage}
-                            totalPages={contactsData.last_page}
-                            onPageChange={setCurrentPage}
-                            totalItems={contactsData.total}
-                            pageSize={10}
-                            showTotalItems={true}
-                        />
                     </div>
                 )}
             </div>
