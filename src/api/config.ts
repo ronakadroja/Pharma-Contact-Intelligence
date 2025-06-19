@@ -1,12 +1,21 @@
 import axios from 'axios';
 
+// Determine the base URL based on the environment
+const getBaseUrl = () => {
+    if (import.meta.env.MODE === 'development') {
+        return '/api'; // This will be handled by Vite's proxy in development
+    }
+    // In production, use the actual API URL
+    return 'https://3148-152-58-35-171.ngrok-free.app/api';
+};
+
 // Create axios instance with custom config
 const api = axios.create({
-    baseURL: '/api', // Use relative URL, will be handled by Vite proxy
+    baseURL: getBaseUrl(),
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true' // Add this header to skip ngrok warning
+        'ngrok-skip-browser-warning': 'true'
     },
 });
 
