@@ -1,79 +1,15 @@
-import axios from 'axios';
 import type { LoginResponse, LoginCredentials, CreateUserPayload, CreateUserResponse, User } from '../types/auth';
-
-// In development, the API requests will go through the Vite proxy
-const BASE_URL = '/api';
-
-// Create axios instance with default config
-const api = axios.create({
-    baseURL: BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true'
-    },
-    // Set withCredentials to false since we're using token-based auth
-    withCredentials: false
-});
-
-// Add request interceptor to add auth token
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
-
-// Add response interceptor to handle common errors
-api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        // Check if it's an Axios error
-        if (error && typeof error === 'object' && 'isAxiosError' in error) {
-            const axiosError = error as { response?: { status: number; data?: { message?: string } } };
-
-            if (!axiosError.response) {
-                // Check if it's a CORS or network error
-                if (error.message === 'Network Error') {
-                    console.error('CORS or Network Error:', error);
-                    throw new Error('Unable to connect to the server. Please try again later.');
-                }
-                throw new Error('Network error. Please check your connection.');
-            }
-
-            // Handle specific error cases
-            switch (axiosError.response.status) {
-                case 401:
-                    // Clear token if unauthorized
-                    localStorage.removeItem('token');
-                    throw new Error('Unauthorized. Please log in again.');
-                case 403:
-                    throw new Error('You do not have permission to perform this action.');
-                case 404:
-                    throw new Error('The requested resource was not found.');
-                case 500:
-                    throw new Error('Server error. Please try again later.');
-                default:
-                    throw new Error(axiosError.response.data?.message || 'An error occurred. Please try again.');
-            }
-        }
-
-        throw new Error('An unexpected error occurred');
-    }
-);
+import api from './config';
+import { getAuthUrl, getUserUrl } from './utils';
 
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
     try {
-        const response = await api.post<LoginResponse>('/login', credentials);
+        const response = await api.post<LoginResponse>(getAuthUrl('LOGIN'), credentials);
         // Store the token after successful login
-        localStorage.setItem('token', response.data?.data?.token);
-        localStorage.setItem('user', JSON.stringify(response.data?.data?.user));
+        if (response.data?.success && response.data?.data?.token) {
+            localStorage.setItem('token', response.data.data.token);
+            // Don't store user here, let AppContext handle it
+        }
         return response.data;
     } catch (error) {
         if (error && typeof error === 'object' && 'isAxiosError' in error) {
@@ -88,16 +24,17 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
 
 export const logout = async (): Promise<void> => {
     try {
-        await api.post('/logout');
+        await api.post(getAuthUrl('LOGOUT'));
     } finally {
-        // Always clear token on logout
+        // Always clear all auth data on logout
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
     }
 };
 
 export const createUser = async (userData: CreateUserPayload): Promise<CreateUserResponse> => {
     try {
-        const response = await api.post<CreateUserResponse>('/users', userData);
+        const response = await api.post<CreateUserResponse>(getUserUrl('CREATE'), userData);
         return response.data;
     } catch (error) {
         if (error && typeof error === 'object' && 'isAxiosError' in error) {
@@ -115,7 +52,7 @@ export const createUser = async (userData: CreateUserPayload): Promise<CreateUse
 
 export const getUsers = async (): Promise<User[]> => {
     try {
-        const response = await api.get<{ data: User[] }>('/users');
+        const response = await api.get<{ data: User[] }>(getUserUrl('BASE'));
         // Ensure we're returning the array of users from the response
         return Array.isArray(response.data.data) ? response.data.data : [];
     } catch (error) {
@@ -133,7 +70,7 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-    await api.delete(`/users/${userId}`);
+    await api.delete(getUserUrl('DELETE', userId));
 };
 
 export interface UpdateUserPayload {
@@ -148,7 +85,7 @@ export interface UpdateUserPayload {
 
 export const updateUser = async (userId: string, userData: UpdateUserPayload): Promise<User> => {
     try {
-        const response = await api.put<User>(`/users/${userId}`, userData);
+        const response = await api.put<User>(getUserUrl('UPDATE', userId), userData);
         return response.data;
     } catch (error) {
         if (error && typeof error === 'object' && 'isAxiosError' in error) {
@@ -169,38 +106,18 @@ export const updateUser = async (userId: string, userData: UpdateUserPayload): P
 
 export const updateUserStatus = async (userId: string, status: 'active' | 'inactive'): Promise<void> => {
     try {
-        const response = await fetch(`${BASE_URL}/users/${userId}/status`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ status })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to update user status');
-        }
+        await api.patch(getUserUrl('STATUS', userId), { status });
     } catch (error) {
-        throw error;
+        console.error('Error updating user status:', error);
+        throw new Error('Failed to update user status');
     }
 };
 
 export const updateUserRole = async (userId: string, role: string): Promise<void> => {
     try {
-        const response = await fetch(`${BASE_URL}/users/${userId}/role`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ role })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to update user role');
-        }
+        await api.patch(getUserUrl('ROLE', userId), { role });
     } catch (error) {
-        throw error;
+        console.error('Error updating user role:', error);
+        throw new Error('Failed to update user role');
     }
-}; 
+};

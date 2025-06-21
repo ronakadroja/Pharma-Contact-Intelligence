@@ -15,7 +15,7 @@ const COMPANY_TYPES = ['Medical', 'Pharmaceutical', 'Healthcare', 'Research', 'O
 const REFERENCES = ['LinkedIn', 'Website', 'Referral', 'Conference', 'Other'];
 
 const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
-    const { showToast } = useToast();
+    const { success, error: showError } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         company_name: contact?.company_name || '',
@@ -54,15 +54,53 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
             if (contact) {
                 await updateContact(contact.id, contactPayload);
-                showToast('Contact updated successfully', 'success');
+                success('Contact updated successfully!', {
+                    title: 'Success',
+                    actions: [
+                        {
+                            label: 'View Contacts',
+                            onClick: () => console.log('Navigate to contacts'),
+                            variant: 'primary'
+                        }
+                    ]
+                });
             } else {
                 await addContact(contactPayload);
-                showToast('Contact added successfully', 'success');
+                success('Contact added successfully!', {
+                    title: 'Success',
+                    actions: [
+                        {
+                            label: 'Add Another',
+                            onClick: () => window.location.reload(),
+                            variant: 'primary'
+                        }
+                    ]
+                });
             }
 
             onSuccess?.();
         } catch (error) {
-            showToast(error instanceof Error ? error.message : `Failed to ${contact ? 'update' : 'add'} contact`, 'error');
+            const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+            const actionType = contact ? 'update' : 'add';
+            const fullErrorMessage = `Failed to ${actionType} contact. ${errorMessage}`;
+
+            showError(fullErrorMessage, {
+                title: 'Error',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Try Again',
+                        onClick: () => {
+                            const form = document.querySelector('form');
+                            if (form) {
+                                const event = new Event('submit', { bubbles: true, cancelable: true });
+                                form.dispatchEvent(event);
+                            }
+                        },
+                        variant: 'primary'
+                    }
+                ]
+            });
         } finally {
             setIsLoading(false);
         }
@@ -122,7 +160,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
                             <div>
                                 <label htmlFor="company_website" className="block text-sm font-medium text-gray-700">
-                                    Company Website
+                                    Company Website <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="url"
@@ -130,6 +168,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                     name="company_website"
                                     value={formData.company_website}
                                     onChange={handleChange}
+                                    required
                                     placeholder="Enter company website"
                                     className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 />
@@ -137,7 +176,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
                             <div>
                                 <label htmlFor="company_linkedin_url" className="block text-sm font-medium text-gray-700">
-                                    Company LinkedIn URL
+                                    Company LinkedIn URL <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="url"
@@ -145,6 +184,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                     name="company_linkedin_url"
                                     value={formData.company_linkedin_url}
                                     onChange={handleChange}
+                                    required
                                     placeholder="Enter company LinkedIn URL"
                                     className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 />
@@ -209,7 +249,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
                             <div>
                                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                                    Phone Number <span className="text-red-500">*</span>
+                                    Phone Number
                                 </label>
                                 <input
                                     type="tel"
@@ -217,7 +257,6 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    required
                                     placeholder="Enter phone number"
                                     className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 />
@@ -294,7 +333,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
                             <div>
                                 <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                                    City <span className="text-red-500">*</span>
+                                    City
                                 </label>
                                 <input
                                     type="text"
@@ -302,7 +341,6 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                     name="city"
                                     value={formData.city}
                                     onChange={handleChange}
-                                    required
                                     placeholder="Enter city"
                                     className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 />
@@ -316,14 +354,13 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="reference" className="block text-sm font-medium text-gray-700">
-                                    Reference Source <span className="text-red-500">*</span>
+                                    Reference Source
                                 </label>
                                 <select
                                     id="reference"
                                     name="reference"
                                     value={formData.reference}
                                     onChange={handleChange}
-                                    required
                                     className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Select reference source</option>
@@ -367,7 +404,10 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                         disabled={isLoading}
                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                        {isLoading ? 'Saving...' : contact ? 'Update Contact' : 'Add Contact'}
+                        {(() => {
+                            if (isLoading) return 'Saving...';
+                            return contact ? 'Update Contact' : 'Add Contact';
+                        })()}
                     </button>
                 </div>
             </form>

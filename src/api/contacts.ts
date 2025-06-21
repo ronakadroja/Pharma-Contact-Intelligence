@@ -1,4 +1,5 @@
 import api from './config';
+import { getContactUrl, buildUrlWithParams } from './utils';
 
 export interface Contact {
     id: string;
@@ -55,7 +56,7 @@ export const getContacts = async (params?: ContactSearchParams): Promise<Contact
             Object.entries(params).filter(([_, value]) => value !== '')
         ) : {};
 
-        const response = await api.get<ContactsResponse>('/contacts', { params: filteredParams });
+        const response = await api.get<ContactsResponse>(getContactUrl('BASE'), { params: filteredParams });
         return response.data;
     } catch (error) {
         console.error('Error fetching contacts:', error);
@@ -83,7 +84,7 @@ export interface ContactPayload {
 
 export const addContact = async (contactData: ContactPayload): Promise<Contact> => {
     try {
-        const response = await api.post<Contact>('/contacts', contactData);
+        const response = await api.post<Contact>(getContactUrl('CREATE'), contactData);
         return response.data;
     } catch (error) {
         console.error('Error adding contact:', error);
@@ -93,7 +94,7 @@ export const addContact = async (contactData: ContactPayload): Promise<Contact> 
 
 export const updateContact = async (id: string, contactData: Partial<ContactPayload>): Promise<Contact> => {
     try {
-        const response = await api.put<Contact>(`/contacts/${id}`, contactData);
+        const response = await api.put<Contact>(getContactUrl('UPDATE', id), contactData);
         return response.data;
     } catch (error) {
         console.error('Error updating contact:', error);
@@ -103,7 +104,7 @@ export const updateContact = async (id: string, contactData: Partial<ContactPayl
 
 export const deleteContact = async (id: string): Promise<void> => {
     try {
-        await api.delete(`/contacts/${id}`);
+        await api.delete(getContactUrl('DELETE', id));
     } catch (error) {
         console.error('Error deleting contact:', error);
         throw error;
@@ -112,7 +113,7 @@ export const deleteContact = async (id: string): Promise<void> => {
 
 export const updateContactStatus = async (id: string, status: 'Active' | 'Inactive'): Promise<Contact> => {
     try {
-        const response = await api.patch<Contact>(`/contacts/${id}/status`, { status });
+        const response = await api.patch<Contact>(getContactUrl('STATUS', id), { status });
         return response.data;
     } catch (error) {
         console.error('Error updating contact status:', error);
@@ -127,7 +128,7 @@ export interface RevealContactResponse {
 
 export const revealContact = async (id: string): Promise<number> => {
     try {
-        const response = await api.post<RevealContactResponse>(`/contacts/${id}/reveal`);
+        const response = await api.post<RevealContactResponse>(getContactUrl('REVEAL', id));
         return response.data.available_credit;
     } catch (error) {
         console.error('Error revealing contact:', error);
@@ -183,7 +184,7 @@ export const bulkImportContacts = async (file: File): Promise<BulkImportResponse
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await api.post<BulkImportResponse>('/contacts/bulk/import', formData, {
+        const response = await api.post<BulkImportResponse>(getContactUrl('BULK_IMPORT'), formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -193,4 +194,4 @@ export const bulkImportContacts = async (file: File): Promise<BulkImportResponse
         console.error('Error importing contacts:', error);
         throw error;
     }
-}; 
+};

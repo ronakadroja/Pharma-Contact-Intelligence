@@ -51,13 +51,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 try {
                     const userData = JSON.parse(storedUser);
                     setUser({
-                        id: '1',
+                        id: userData.id || '1',
                         email: userData.email,
                         role: userData.role.toLowerCase() as UserRole,
-                        credits: parseInt(userData.credits),
-                        name: userData.name
+                        credits: parseInt(userData.credits || '0'),
+                        name: userData.name,
+                        phone_number: userData.phone_number || '',
+                        company: userData.company || '',
+                        country: userData.country || '',
+                        status: userData.status || 'active',
+                        createdAt: userData.createdAt || new Date().toISOString()
                     });
-                    setCoins(parseInt(userData.credits));
+                    setCoins(parseInt(userData.credits || '0'));
                 } catch (error) {
                     console.error('Error parsing stored user data:', error);
                     await logout(); // Clear invalid data
@@ -79,15 +84,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         try {
             const response = await apiLogin({ username, password });
 
-            if (response.success) {
+            if (response.success && response.data && response.data.token) {
+                const apiData = response.data;
                 const userData = {
-                    id: '1',
-                    email: response.data.email,
-                    role: response.data.role.toLowerCase() as UserRole,
-                    credits: parseInt(response.data.credits),
-                    name: response.data.name
+                    id: '1', // Since the API doesn't return ID, we'll use a default
+                    email: apiData.email,
+                    role: apiData.role.toLowerCase() as UserRole,
+                    credits: parseInt(apiData.credits || '50'),
+                    name: apiData.name,
+                    phone_number: '',
+                    company: '',
+                    country: '',
+                    status: 'active' as const,
+                    createdAt: new Date().toISOString()
                 };
 
+                localStorage.setItem('token', apiData.token);
+                localStorage.setItem('user', JSON.stringify(userData));
                 setUser(userData);
                 setCoins(userData.credits);
                 return true;
@@ -105,6 +118,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             console.error('Error during logout:', error);
         } finally {
+            // Clear all authentication data
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             setUser(null);
             setCoins(0);
             setMyList([]);

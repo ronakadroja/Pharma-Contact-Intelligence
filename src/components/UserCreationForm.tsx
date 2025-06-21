@@ -3,10 +3,11 @@ import { createUser, updateUser } from '../api/auth';
 import { useToast } from '../context/ToastContext';
 import type { CreateUserPayload, UpdateUserPayload, User } from '../types/auth';
 import { encodePassword } from '../utils/auth';
-import { X } from 'lucide-react';
+import { X, User as UserIcon, Mail, Phone, Building, Globe } from 'lucide-react';
+import { Button, Card, Input } from './ui/design-system';
 
 interface UserWithStatus extends User {
-    status: 'Active' | 'Deactive';
+    status: 'Active' | 'Inactive';
 }
 
 interface UserCreationFormProps {
@@ -17,7 +18,7 @@ interface UserCreationFormProps {
 
 const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'Spain', 'Italy', 'Japan'];
 const ROLES = ['User', 'Admin'];
-const STATUS_OPTIONS = ['Active', 'Deactive'];
+const STATUS_OPTIONS = ['Active', 'Inactive'];
 
 const DEFAULT_FORM_STATE: CreateUserPayload = {
     name: '',
@@ -32,7 +33,7 @@ const DEFAULT_FORM_STATE: CreateUserPayload = {
 };
 
 const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) => {
-    const { showToast } = useToast();
+    const { success, error: showError } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState<CreateUserPayload>(DEFAULT_FORM_STATE);
 
@@ -93,7 +94,16 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                 }
 
                 await updateUser(user.id, updateData);
-                showToast('User updated successfully', 'success');
+                success('User updated successfully!', {
+                    title: 'Success',
+                    actions: [
+                        {
+                            label: 'View Users',
+                            onClick: () => console.log('Navigate to users list'),
+                            variant: 'primary'
+                        }
+                    ]
+                });
             } else {
                 // Create mode - send all required fields
                 const createData: CreateUserPayload = {
@@ -102,32 +112,58 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                 };
 
                 await createUser(createData);
-                showToast('User created successfully', 'success');
+                success('User created successfully!', {
+                    title: 'Success',
+                    actions: [
+                        {
+                            label: 'Create Another',
+                            onClick: () => setFormData(DEFAULT_FORM_STATE),
+                            variant: 'primary'
+                        }
+                    ]
+                });
                 setFormData(DEFAULT_FORM_STATE);
             }
 
             onSuccess?.();
-        } catch (error) {
-            showToast(error instanceof Error ? error.message : `Failed to ${user ? 'update' : 'create'} user`, 'error');
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : `Failed to ${user ? 'update' : 'create'} user`;
+            showError(errorMessage, {
+                title: 'Error',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Try Again',
+                        onClick: () => {
+                            const form = document.querySelector('form');
+                            if (form) {
+                                const event = new Event('submit', { bubbles: true, cancelable: true });
+                                form.dispatchEvent(event);
+                            }
+                        },
+                        variant: 'primary'
+                    }
+                ]
+            });
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="bg-white">
+        <>
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-4 mb-6">
                 <div>
-                    <h2 className="text-xl font-semibold text-gray-900">{user ? 'Edit User' : 'Create New User'}</h2>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <h2 className="text-xl font-semibold text-neutral-900">{user ? 'Edit User' : 'Create New User'}</h2>
+                    <p className="mt-1 text-sm text-neutral-500">
                         {user ? 'Update the user information below.' : 'Fill in the information below to create a new user account.'}
                     </p>
                 </div>
                 <button
                     type="button"
                     onClick={handleCancel}
-                    className="p-2 text-gray-400 hover:text-gray-500"
+                    className="p-2 text-neutral-400 hover:text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors"
                 >
                     <X className="h-5 w-5" />
                 </button>
@@ -136,127 +172,107 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Information */}
                 <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-4">Basic Information</h3>
+                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Basic Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div>
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                                Full Name <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                id="name"
-                                name="name"
-                                value={formData.name}
-                                onChange={handleChange}
-                                required
-                                placeholder="Enter full name"
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
-                            />
-                        </div>
+                        <Input
+                            type="text"
+                            id="name"
+                            name="name"
+                            label="Full Name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                            placeholder="Enter full name"
+                            leftIcon={<UserIcon size={18} />}
+                        />
 
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                required
-                                placeholder="Enter email address"
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
-                            />
-                        </div>
+                        <Input
+                            type="email"
+                            id="email"
+                            name="email"
+                            label="Email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                            placeholder="Enter email address"
+                            leftIcon={<Mail size={18} />}
+                        />
 
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                Password {!user && <span className="text-red-500">*</span>}
-                            </label>
-                            <div className="mt-1 relative">
-                                <input
-                                    type="password"
-                                    id="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    required={!user}
-                                    placeholder={user ? "Enter new password (optional)" : "Enter password"}
-                                    className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
-                                />
-                                {user && (
-                                    <p className="mt-1 text-xs text-gray-500">Leave blank to keep current password</p>
-                                )}
-                            </div>
-                        </div>
+                        <Input
+                            type="password"
+                            id="password"
+                            name="password"
+                            label={`Password ${!user ? '*' : ''}`}
+                            value={formData.password}
+                            onChange={handleChange}
+                            required={!user}
+                            placeholder={user ? "Enter new password (optional)" : "Enter password"}
+                            hint={user ? "Leave blank to keep current password" : undefined}
+                        />
 
-                        <div>
-                            <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
-                                Phone Number <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="tel"
-                                id="phone_number"
-                                name="phone_number"
-                                value={formData.phone_number}
-                                onChange={handleChange}
-                                required
-                                placeholder="Enter phone number"
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
-                            />
-                        </div>
+                        <Input
+                            type="tel"
+                            id="phone_number"
+                            name="phone_number"
+                            label="Phone Number"
+                            value={formData.phone_number}
+                            onChange={handleChange}
+                            required
+                            placeholder="Enter phone number"
+                            leftIcon={<Phone size={18} />}
+                        />
                     </div>
                 </div>
 
                 {/* Company Information */}
                 <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-4">Company Information</h3>
+                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Company Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div>
-                            <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-                                Company Name <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                id="company"
-                                name="company"
-                                value={formData.company}
-                                onChange={handleChange}
-                                required
-                                placeholder="Enter company name"
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
-                            />
-                        </div>
+                        <Input
+                            type="text"
+                            id="company"
+                            name="company"
+                            label="Company Name"
+                            value={formData.company}
+                            onChange={handleChange}
+                            required
+                            placeholder="Enter company name"
+                            leftIcon={<Building size={18} />}
+                        />
 
-                        <div>
-                            <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                                Country <span className="text-red-500">*</span>
+                        <div className="space-y-2">
+                            <label htmlFor="country" className="block text-sm font-medium text-neutral-700">
+                                Country <span className="text-error-500 ml-1">*</span>
                             </label>
-                            <select
-                                id="country"
-                                name="country"
-                                value={formData.country}
-                                onChange={handleChange}
-                                required
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            >
-                                <option value="">Select a country</option>
-                                {COUNTRIES.map(country => (
-                                    <option key={country} value={country}>{country}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+                                    <Globe size={18} />
+                                </div>
+                                <select
+                                    id="country"
+                                    name="country"
+                                    value={formData.country}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full text-sm pl-10 pr-4 py-3 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
+                                >
+                                    <option value="">Select a country</option>
+                                    {COUNTRIES.map(country => (
+                                        <option key={country} value={country}>{country}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Account Settings */}
                 <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-4">Account Settings</h3>
+                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Account Settings</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                        <div>
-                            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                                Role <span className="text-red-500">*</span>
+                        <div className="space-y-2">
+                            <label htmlFor="role" className="block text-sm font-medium text-neutral-700">
+                                Role <span className="text-error-500 ml-1">*</span>
                             </label>
                             <select
                                 id="role"
@@ -264,7 +280,7 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                                 value={formData.role}
                                 onChange={handleChange}
                                 required
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                className="w-full text-sm px-4 py-3 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
                             >
                                 {ROLES.map(role => (
                                     <option key={role} value={role}>{role}</option>
@@ -272,26 +288,21 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                             </select>
                         </div>
 
-                        <div>
-                            <label htmlFor="credits" className="block text-sm font-medium text-gray-700">
-                                Credits <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                id="credits"
-                                name="credits"
-                                placeholder="Enter credits"
-                                value={formData.credits}
-                                onChange={handleChange}
-                                required
-                                min="0"
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
+                        <Input
+                            type="number"
+                            id="credits"
+                            name="credits"
+                            label="Credits"
+                            placeholder="Enter credits"
+                            value={formData.credits}
+                            onChange={handleChange}
+                            required
+                            min="0"
+                        />
 
-                        <div>
-                            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                                Status <span className="text-red-500">*</span>
+                        <div className="space-y-2">
+                            <label htmlFor="status" className="block text-sm font-medium text-neutral-700">
+                                Status <span className="text-error-500 ml-1">*</span>
                             </label>
                             <select
                                 id="status"
@@ -299,7 +310,7 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                                 value={formData.status}
                                 onChange={handleChange}
                                 required
-                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                className="w-full text-sm px-4 py-3 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
                             >
                                 {STATUS_OPTIONS.map(status => (
                                     <option key={status} value={status}>{status}</option>
@@ -310,34 +321,24 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
-                    <button
+                <div className="flex items-center justify-end space-x-3 pt-6 border-t border-neutral-200">
+                    <Button
                         type="button"
+                        variant="outline"
                         onClick={handleCancel}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
                         Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="submit"
+                        loading={isLoading}
                         disabled={isLoading}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isLoading ? (
-                            <span className="flex items-center">
-                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Processing...
-                            </span>
-                        ) : (
-                            user ? 'Update User' : 'Create User'
-                        )}
-                    </button>
+                        {isLoading ? 'Processing...' : (user ? 'Update User' : 'Create User')}
+                    </Button>
                 </div>
             </form>
-        </div>
+        </>
     );
 };
 

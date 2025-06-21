@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Filter, ChevronDown, ChevronUp, Search } from "lucide-react";
 import useDebounce from "../hooks/useDebounce";
+import { Card, Input, Badge } from "./ui/design-system";
 
 interface FilterState {
     company_name: string;
@@ -51,24 +52,24 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <Card variant="elevated" padding="none" className="overflow-hidden">
             {/* Filter Header */}
             <div
-                className={`p-4 bg-gray-50 border-b flex items-center justify-between ${!isMobile ? 'cursor-pointer' : ''}`}
+                className={`p-4 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between ${!isMobile ? 'cursor-pointer' : ''}`}
                 onClick={() => !isMobile && setIsOpen(!isOpen)}
             >
                 <div className="flex items-center gap-2">
-                    <Filter size={20} className="text-gray-500" />
-                    <h2 className="text-lg font-semibold">Filters</h2>
+                    <Filter size={20} className="text-neutral-500" />
+                    <h2 className="text-lg font-semibold text-neutral-900">Filters</h2>
                     {activeFiltersCount > 0 && (
-                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                        <Badge variant="primary" size="sm">
                             {activeFiltersCount}
-                        </span>
+                        </Badge>
                     )}
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                        className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors"
                         onClick={(e) => {
                             e.stopPropagation();
                             handleReset();
@@ -79,7 +80,7 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
                     </button>
                     {!isMobile && (
                         <button
-                            className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                            className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsOpen(!isOpen);
@@ -146,7 +147,7 @@ const FilterPanel = ({ onFilter, isMobile }: FilterPanelProps) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </Card>
     );
 };
 

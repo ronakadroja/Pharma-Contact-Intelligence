@@ -1,5 +1,5 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Download, Pencil, Plus, Trash2, Upload, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, Upload, Filter } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
     deleteContact,
@@ -15,6 +15,7 @@ import ContactForm from '../../components/ContactForm';
 import Pagination from "../../components/Pagination";
 import Table from "../../components/Table";
 import { useToast } from '../../context/ToastContext';
+import { Button, Card, Input, Badge } from '../../components/ui/design-system';
 
 interface ContactFormData {
     companyName: string;
@@ -54,7 +55,7 @@ const ContactManagement = () => {
     });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
-    const { showToast } = useToast();
+    const { success, error: showError } = useToast();
     const [error, setError] = useState<string | null>(null);
     const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
     const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
@@ -107,10 +108,9 @@ const ContactManagement = () => {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }) => (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${row.original.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
+                <Badge variant={row.original.status === 'Active' ? 'success' : 'error'} size="sm">
                     {row.original.status}
-                </span>
+                </Badge>
             ),
         },
         {
@@ -161,7 +161,10 @@ const ContactManagement = () => {
                 }
             }
 
-            showToast(errorMessage, 'error');
+            showError(errorMessage, {
+                title: 'Search Failed',
+                persistent: true
+            });
             setError(errorMessage);
             setContactsData(null);
         } finally {
@@ -214,10 +217,15 @@ const ContactManagement = () => {
 
         try {
             await deleteContact(contactToDelete.id);
-            showToast('Contact deleted successfully', 'success');
+            success('Contact deleted successfully!', {
+                title: 'Deleted'
+            });
             fetchContacts(currentPage);
         } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Failed to delete contact', 'error');
+            showError(error instanceof Error ? error.message : 'Failed to delete contact', {
+                title: 'Delete Failed',
+                persistent: true
+            });
         } finally {
             setShowDeleteConfirmation(false);
             setContactToDelete(null);
@@ -228,12 +236,18 @@ const ContactManagement = () => {
         const file = e.target.files?.[0];
         if (file) {
             try {
-                showToast('Bulk upload started. Processing file...', 'info');
+                success('Bulk upload started. Processing file...', {
+                    title: 'Upload Started',
+                    showProgress: false
+                });
                 const response = await bulkImportContacts(file);
 
                 // Handle file validation error
                 if (response.file) {
-                    showToast(response.file[0], 'error');
+                    showError(response.file[0], {
+                        title: 'File Validation Error',
+                        persistent: true
+                    });
                     return;
                 }
 
@@ -241,12 +255,17 @@ const ContactManagement = () => {
                 if (response.success !== undefined) {
                     if (response.failure === 0) {
                         // Complete success case
-                        showToast(`Successfully imported all ${response.success} contacts`, 'success');
+                        success(`Successfully imported all ${response.success} contacts!`, {
+                            title: 'Import Complete'
+                        });
                     } else {
                         // Partial success case with errors
-                        showToast(
+                        showError(
                             `Imported ${response.success} contacts with ${response.failure} failures. Check error details below.`,
-                            'warning'
+                            {
+                                title: 'Partial Import',
+                                persistent: true
+                            }
                         );
 
                         // If there are specific errors, show them in separate toasts
@@ -256,7 +275,10 @@ const ContactManagement = () => {
                                     ? `Missing required field: ${error.message.match(/Column '(.+?)' cannot/)?.[1] || 'unknown field'}`
                                     : error.message
                                     }`;
-                                showToast(errorMessage, 'error');
+                                showError(errorMessage, {
+                                    title: 'Import Error',
+                                    persistent: true
+                                });
                             });
                         }
                     }
@@ -265,9 +287,12 @@ const ContactManagement = () => {
                     fetchContacts(currentPage);
                 }
             } catch (error) {
-                showToast(
+                showError(
                     error instanceof Error ? error.message : 'Failed to import contacts',
-                    'error'
+                    {
+                        title: 'Import Failed',
+                        persistent: true
+                    }
                 );
             } finally {
                 // Reset the file input
@@ -278,7 +303,10 @@ const ContactManagement = () => {
 
     const handleExportContacts = () => {
         // TODO: Implement API integration for export
-        showToast('Exporting contacts...', 'info');
+        success('Exporting contacts...', {
+            title: 'Export Started',
+            showProgress: false
+        });
     };
 
     const handleFormSuccess = () => {
@@ -297,11 +325,16 @@ const ContactManagement = () => {
                 .filter(([_, selected]) => selected)
                 .map(([id]) => id);
             await Promise.all(selectedIds.map(id => deleteContact(id)));
-            showToast(`Successfully deleted ${selectedIds.length} contacts`, 'success');
+            success(`Successfully deleted ${selectedIds.length} contacts!`, {
+                title: 'Bulk Delete Complete'
+            });
             setSelectedRows({});
             fetchContacts(currentPage);
         } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Failed to delete contacts', 'error');
+            showError(error instanceof Error ? error.message : 'Failed to delete contacts', {
+                title: 'Bulk Delete Failed',
+                persistent: true
+            });
         } finally {
             setShowBulkDeleteConfirmation(false);
         }
@@ -319,11 +352,16 @@ const ContactManagement = () => {
                 .filter(([_, selected]) => selected)
                 .map(([id]) => id);
             await Promise.all(selectedIds.map(id => updateContactStatus(id, bulkStatusToSet)));
-            showToast(`Successfully updated status for ${selectedIds.length} contacts`, 'success');
+            success(`Successfully updated status for ${selectedIds.length} contacts!`, {
+                title: 'Status Updated'
+            });
             setSelectedRows({});
             fetchContacts(currentPage);
         } catch (error) {
-            showToast(error instanceof Error ? error.message : 'Failed to update contact status', 'error');
+            showError(error instanceof Error ? error.message : 'Failed to update contact status', {
+                title: 'Status Update Failed',
+                persistent: true
+            });
         } finally {
             setShowBulkStatusConfirmation(false);
             setBulkStatusToSet(null);
@@ -333,180 +371,152 @@ const ContactManagement = () => {
     const handleRevealContact = async (contact: Contact) => {
         try {
             await revealContact(contact.id);
-            showToast('Contact information revealed successfully', 'success');
+            success('Contact information revealed successfully!', {
+                title: 'Contact Revealed'
+            });
             fetchContacts(currentPage); // Refresh the contacts list
         } catch (error) {
             console.error('Error revealing contact:', error);
-            showToast('Failed to reveal contact information', 'error');
+            showError('Failed to reveal contact information', {
+                title: 'Reveal Failed',
+                persistent: true
+            });
         }
     };
 
     return (
-        <div>
-            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-                <div>
-                    <h2 className="text-lg font-medium text-gray-900">Contact Management</h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Manage pharmaceutical industry contacts
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-                    <button
-                        onClick={handleExportContacts}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm sm:text-base"
-                    >
-                        <Download size={18} className="sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">Export</span>
-                    </button>
-                    <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer text-sm sm:text-base">
-                        <Upload size={18} className="sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">Bulk Upload</span>
-                        <input
-                            type="file"
-                            accept=".csv,.xlsx"
-                            onChange={handleBulkUpload}
-                            className="hidden"
-                        />
-                    </label>
-                    <button
-                        onClick={handleAddContact}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
-                    >
-                        <Plus size={18} className="sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">Add Contact</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* Filter Toggle Button */}
-            <div className="mb-4">
-                <button
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-white border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                >
-                    <Filter className={`h-4 w-4 mr-2 ${isFilterOpen ? 'text-blue-600' : 'text-gray-500'}`} />
-                    <span className="hidden sm:inline">Filters</span>
-                    {isFilterOpen ? (
-                        <ChevronUp className="ml-2 h-4 w-4 text-gray-500" />
-                    ) : (
-                        <ChevronDown className="ml-2 h-4 w-4 text-gray-500" />
-                    )}
-                    {Object.values(searchParams).some(param => param !== '') && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {Object.values(searchParams).filter(param => param !== '').length}
-                        </span>
-                    )}
-                </button>
-            </div>
-
-            {/* Search Form */}
-            <div className={`mb-6 transition-all duration-300 ease-in-out ${isFilterOpen ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
-                        <h3 className="text-base sm:text-lg font-medium text-gray-900">Filter Contacts</h3>
-                        <p className="mt-1 text-xs sm:text-sm text-gray-500">Use the filters below to find specific contacts</p>
+        <div className="space-y-6">
+            {/* Header Section */}
+            <Card variant="elevated" padding="lg">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-neutral-900">Contact Management</h2>
+                        <p className="mt-1 text-sm text-neutral-500">
+                            Manage pharmaceutical industry contacts
+                        </p>
                     </div>
-                    <div className="p-4 sm:p-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                            <div className="space-y-2">
-                                <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">
-                                    Company Name
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="company_name"
-                                        placeholder="Enter company name"
-                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
-                                        value={searchParams.company_name}
-                                        onChange={(e) => setSearchParams(prev => ({
-                                            ...prev,
-                                            company_name: e.target.value.trim()
-                                        }))}
-                                    />
-                                </div>
-                            </div>
+                    <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+                        <Button
+                            variant="success"
+                            onClick={handleExportContacts}
+                            icon={<Download size={18} />}
+                        >
+                            <span className="hidden sm:inline">Export</span>
+                        </Button>
+                        <label className="cursor-pointer">
+                            <Button
+                                icon={<Upload size={18} />}
+                                className="pointer-events-none"
+                            >
+                                <span className="hidden sm:inline">Bulk Upload</span>
+                            </Button>
+                            <input
+                                type="file"
+                                accept=".csv,.xlsx"
+                                onChange={handleBulkUpload}
+                                className="hidden"
+                            />
+                        </label>
+                        <Button
+                            onClick={handleAddContact}
+                            icon={<Plus size={18} />}
+                        >
+                            <span className="hidden sm:inline">Add Contact</span>
+                        </Button>
+                    </div>
+                </div>
+            </Card>
 
-                            <div className="space-y-2">
-                                <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
-                                    Designation
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="designation"
-                                        placeholder="Enter designation"
-                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
-                                        value={searchParams.designation}
-                                        onChange={(e) => setSearchParams(prev => ({
-                                            ...prev,
-                                            designation: e.target.value.trim()
-                                        }))}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                                    Country
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="country"
-                                        placeholder="Enter country"
-                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
-                                        value={searchParams.person_country}
-                                        onChange={(e) => setSearchParams(prev => ({
-                                            ...prev,
-                                            person_country: e.target.value.trim()
-                                        }))}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                                    City
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="city"
-                                        placeholder="Enter city"
-                                        className="block w-full pl-10 py-2.5 sm:py-3 text-sm sm:text-base border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:border-gray-400 transition-colors"
-                                        value={searchParams.city}
-                                        onChange={(e) => setSearchParams(prev => ({
-                                            ...prev,
-                                            city: e.target.value.trim()
-                                        }))}
-                                    />
-                                </div>
-                            </div>
+            {/* Search and Filter Section */}
+            <Card variant="elevated" padding="none">
+                <div className="p-6 border-b border-neutral-200">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                            <Input
+                                type="text"
+                                value={searchParams.company_name || ''}
+                                onChange={e => setSearchParams(prev => ({
+                                    ...prev,
+                                    company_name: e.target.value
+                                }))}
+                                placeholder="Search contacts by company name..."
+                                leftIcon={
+                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                                    </svg>
+                                }
+                            />
                         </div>
+                        <div className="flex items-center gap-4">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                icon={<Filter className="h-4 w-4" />}
+                            >
+                                Filters
+                                {Object.values(searchParams).some(param => param !== '') && (
+                                    <Badge variant="primary" size="sm" className="ml-2">
+                                        {Object.values(searchParams).filter(param => param !== '').length}
+                                    </Badge>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
 
-                        <div className="mt-8 flex items-center justify-end gap-3">
-                            <button
+                {/* Filter Panel */}
+                {isFilterOpen && (
+                    <div className="p-6 bg-neutral-50 border-b border-neutral-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <Input
+                                label="Designation"
+                                type="text"
+                                value={searchParams.designation}
+                                onChange={(e) => setSearchParams(prev => ({
+                                    ...prev,
+                                    designation: e.target.value
+                                }))}
+                                placeholder="Enter designation"
+                                leftIcon={
+                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                                    </svg>
+                                }
+                            />
+                            <Input
+                                label="Country"
+                                type="text"
+                                value={searchParams.person_country}
+                                onChange={(e) => setSearchParams(prev => ({
+                                    ...prev,
+                                    person_country: e.target.value
+                                }))}
+                                placeholder="Enter country"
+                                leftIcon={
+                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                                    </svg>
+                                }
+                            />
+                            <Input
+                                label="City"
+                                type="text"
+                                value={searchParams.city}
+                                onChange={(e) => setSearchParams(prev => ({
+                                    ...prev,
+                                    city: e.target.value
+                                }))}
+                                placeholder="Enter city"
+                                leftIcon={
+                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                    </svg>
+                                }
+                            />
+                        </div>
+                        <div className="mt-6 flex items-center justify-end gap-3">
+                            <Button
+                                variant="outline"
                                 onClick={() => {
                                     setSearchParams({
                                         company_name: '',
@@ -515,83 +525,86 @@ const ContactManagement = () => {
                                         city: ''
                                     });
                                     fetchContacts(1, true);
-                                    showToast('All filters have been cleared', 'success');
+                                    success('All filters have been cleared!', {
+                                        title: 'Filters Cleared'
+                                    });
                                 }}
-                                className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                             >
                                 Clear Filters
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={() => {
                                     setCurrentPage(1);
                                     fetchContacts(1);
-                                    setIsFilterOpen(false);
                                 }}
-                                className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                             >
                                 Apply Filters
-                            </button>
+                            </Button>
                         </div>
                     </div>
-                </div>
-            </div>
+                )}
+            </Card>
 
             {/* Desktop Selected Items Banner */}
-            <div className="hidden sm:block mb-4">
+            <div className="hidden sm:block">
                 {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
-                    <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
-                        <span className="text-sm text-blue-700">
-                            {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
-                        </span>
-                        <div className="flex gap-2">
-                            <select
-                                onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
-                                className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                value=""
-                            >
-                                <option value="">Change Status</option>
-                                <option value="Active">Set Active</option>
-                                <option value="Inactive">Set Inactive</option>
-                            </select>
-                            <button
-                                onClick={handleBulkDeleteClick}
-                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                                Delete Selected
-                            </button>
+                    <Card variant="elevated" padding="md" className="bg-primary-50 border-primary-200">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-primary-700 font-medium">
+                                {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
+                            </span>
+                            <div className="flex gap-2">
+                                <select
+                                    onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
+                                    className="text-sm px-3 py-2 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
+                                    value=""
+                                >
+                                    <option value="">Change Status</option>
+                                    <option value="Active">Set Active</option>
+                                    <option value="Inactive">Set Inactive</option>
+                                </select>
+                                <Button
+                                    variant="error"
+                                    size="sm"
+                                    onClick={handleBulkDeleteClick}
+                                >
+                                    Delete Selected
+                                </Button>
+                            </div>
                         </div>
-                    </div>
+                    </Card>
                 )}
             </div>
 
             {/* Contact Table Container */}
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <Card variant="elevated" padding="none" className="overflow-hidden">
                 {/* Mobile Selected Items Banner */}
                 <div className="block sm:hidden">
                     {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
-                        <div className="bg-blue-50 px-4 py-3 border-b border-blue-100">
+                        <div className="bg-primary-50 px-4 py-3 border-b border-primary-100">
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-blue-700">
+                                    <span className="text-sm font-medium text-primary-700">
                                         {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-1 gap-2">
                                     <select
                                         onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
-                                        className="block w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                        className="block w-full text-sm px-3 py-2 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
                                         value=""
                                     >
                                         <option value="">Change Status</option>
                                         <option value="Active">Set Active</option>
                                         <option value="Inactive">Set Inactive</option>
                                     </select>
-                                    <button
+                                    <Button
+                                        variant="error"
                                         onClick={handleBulkDeleteClick}
-                                        className="w-full inline-flex justify-center items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm"
+                                        className="w-full justify-center"
                                     >
                                         Delete Selected
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -641,7 +654,7 @@ const ContactManagement = () => {
                         </div>
                     </div>
                 )}
-            </div>
+            </Card>
 
             {/* Delete Confirmation Dialog */}
             <ConfirmationDialog
@@ -690,10 +703,10 @@ const ContactManagement = () => {
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                     <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                            <div className="absolute inset-0 bg-neutral-500 opacity-75 backdrop-blur-sm"></div>
                         </div>
 
-                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
                             <ContactForm
                                 contact={selectedContact}
                                 onSuccess={handleFormSuccess}

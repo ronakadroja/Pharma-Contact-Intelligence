@@ -1,30 +1,25 @@
 import axios from 'axios';
+import { CURRENT_API_CONFIG } from '../config/api.config';
 
-// Get the API URL from environment variables with fallback
-const API_URL = import.meta.env.VITE_API_URL || 'https://3148-152-58-35-171.ngrok-free.app';
-
-// Create axios instance with custom config
+// Create axios instance with custom config from our API configuration
 const api = axios.create({
-    baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true'
-    },
+    baseURL: CURRENT_API_CONFIG.BASE_URL,
+    timeout: CURRENT_API_CONFIG.TIMEOUT,
+    headers: CURRENT_API_CONFIG.DEFAULT_HEADERS,
 });
 
 // Request interceptor
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem(CURRENT_API_CONFIG.AUTH.TOKEN_KEY);
         if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`;
+            config.headers.Authorization = `${CURRENT_API_CONFIG.AUTH.TOKEN_PREFIX} ${token}`;
         }
         return config;
     },
     (error) => {
         console.error('Request error:', error);
-        return Promise.reject(error);
+        return Promise.reject(new Error(error.message ?? 'Request failed'));
     }
 );
 
@@ -35,10 +30,10 @@ api.interceptors.response.use(
         console.error('Response error:', error);
         if (error.response?.status === 401) {
             // Handle unauthorized access
-            localStorage.removeItem('token');
+            localStorage.removeItem(CURRENT_API_CONFIG.AUTH.TOKEN_KEY);
             window.location.href = '/login';
         }
-        return Promise.reject(error.response?.data || error);
+        return Promise.reject(new Error(error.response?.data?.message ?? error.message ?? 'Request failed'));
     }
 );
 
