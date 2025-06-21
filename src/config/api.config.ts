@@ -9,26 +9,26 @@
 export const API_CONFIG = {
   // Base URL for all API calls
   BASE_URL: 'https://3148-152-58-35-171.ngrok-free.app',
-  
+
   // API Version (if your API uses versioning)
   VERSION: 'v1',
-  
+
   // Request timeout in milliseconds
   TIMEOUT: 30000, // 30 seconds
-  
+
   // Default headers for all requests
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     'ngrok-skip-browser-warning': 'true'
   },
-  
+
   // Authentication settings
   AUTH: {
     TOKEN_KEY: 'token', // localStorage key for auth token
     TOKEN_PREFIX: 'Bearer', // Token prefix for Authorization header
   },
-  
+
   // API Endpoints
   ENDPOINTS: {
     // Authentication endpoints
@@ -38,7 +38,7 @@ export const API_CONFIG = {
       REFRESH: '/api/refresh',
       PROFILE: '/api/profile'
     },
-    
+
     // User management endpoints
     USERS: {
       BASE: '/api/users',
@@ -48,7 +48,7 @@ export const API_CONFIG = {
       STATUS: (id: string) => `/api/users/${id}/status`,
       ROLE: (id: string) => `/api/users/${id}/role`
     },
-    
+
     // Contact management endpoints
     CONTACTS: {
       BASE: '/api/contacts',
@@ -70,16 +70,16 @@ export const ENVIRONMENT_CONFIG = {
     BASE_URL: 'https://3148-152-58-35-171.ngrok-free.app', // Development API URL
     TIMEOUT: 30000,
   },
-  
+
   staging: {
     ...API_CONFIG,
     BASE_URL: 'https://staging-api.yourapp.com', // Staging API URL
     TIMEOUT: 25000,
   },
-  
+
   production: {
     ...API_CONFIG,
-    BASE_URL: 'https://api.yourapp.com', // Production API URL
+    BASE_URL: 'https://3148-152-58-35-171.ngrok-free.app', // Production API URL
     TIMEOUT: 20000,
   }
 };
@@ -88,10 +88,10 @@ export const ENVIRONMENT_CONFIG = {
 const getCurrentEnvironment = (): keyof typeof ENVIRONMENT_CONFIG => {
   // You can implement your own logic here
   // For example, check window.location.hostname or a custom environment variable
-  
+
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    
+
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'development';
     } else if (hostname.includes('staging')) {
@@ -100,7 +100,7 @@ const getCurrentEnvironment = (): keyof typeof ENVIRONMENT_CONFIG => {
       return 'production';
     }
   }
-  
+
   return 'development'; // Default fallback
 };
 
