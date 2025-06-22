@@ -57,8 +57,9 @@ export const API_CONFIG = {
       DELETE: (id: string) => `/api/contacts/${id}`,
       REVEAL: (id: string) => `/api/contacts/${id}/reveal`,
       STATUS: (id: string) => `/api/contacts/${id}/status`,
-      BULK_IMPORT: '/api/contacts/bulk-import',
-      EXPORT: '/api/contacts/export'
+      BULK_IMPORT: '/api/contacts/bulk/import',
+      EXPORT: '/api/contacts/export',
+      SAVED: '/api/contacts/saved/list'
     }
   }
 };

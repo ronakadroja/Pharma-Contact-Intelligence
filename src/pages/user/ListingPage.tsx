@@ -117,7 +117,7 @@ const ListingPage = () => {
         },
     ];
 
-    const fetchContacts = async (page: number = 1) => {
+    const fetchContacts = async (page: number = 1, showSuccessToast: boolean = false) => {
         try {
             setIsLoading(true);
             const response = await getContacts({
@@ -126,7 +126,9 @@ const ListingPage = () => {
                 per_page: ITEMS_PER_PAGE
             });
             setContactsData(response);
-            showToast('Contact data loaded successfully', 'success');
+            if (showSuccessToast) {
+                showToast('Contact data loaded successfully', 'success');
+            }
         } catch (error) {
             console.error('Error fetching contacts:', error);
             showToast('Failed to fetch contacts', 'error');
@@ -150,18 +152,42 @@ const ListingPage = () => {
 
     // Fetch when search params change
     useEffect(() => {
-        if (Object.values(searchParams).some(value => value !== '')) { // Only fetch if there are search params
+        const hasActiveFilters = Object.values(searchParams).some(value => value !== '');
+        const isClearing = Object.values(searchParams).every(value => value === '');
+
+        if (hasActiveFilters || isClearing) {
             setCurrentPage(1);
             fetchContacts(1);
+
+            // Show appropriate feedback
+            if (isClearing) {
+                showToast('Filters cleared - showing all contacts', 'success');
+            }
         }
     }, [searchParams]);
 
     const handleFilter = (filters: FilterState) => {
-        setSearchParams({
+        const previousFilters = { ...searchParams };
+        const newFilters = {
             company_name: filters.company_name,
             designation: filters.designation,
             person_country: filters.person_country,
-        });
+        };
+
+        // Check if filters are being cleared
+        const isClearing = Object.values(newFilters).every(value => value === '');
+        const wasFiltered = Object.values(previousFilters).some(value => value !== '');
+
+        setSearchParams(newFilters);
+
+        // Show feedback for specific actions
+        if (isClearing && wasFiltered) {
+            // This will be handled by the useEffect above
+        } else if (!isClearing) {
+            // Filters are being applied
+            const activeFilterCount = Object.values(newFilters).filter(value => value !== '').length;
+            showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`, 'success');
+        }
     };
 
     const totalItems = contactsData?.total || 0;
@@ -199,7 +225,7 @@ const ListingPage = () => {
                             <X size={24} />
                         </button>
                     </div>
-                    <FilterPanel onFilter={handleFilter} isMobile={true} />
+                    <FilterPanel onFilter={handleFilter} isMobile={true} isLoading={isLoading} />
                 </div>
             </div>
 
@@ -208,7 +234,7 @@ const ListingPage = () => {
                     {/* Sidebar with filters - Only visible on desktop */}
                     <div className="hidden lg:block w-72 flex-shrink-0">
                         <div className="sticky top-4 space-y-6">
-                            <FilterPanel onFilter={handleFilter} isMobile={false} />
+                            <FilterPanel onFilter={handleFilter} isMobile={false} isLoading={isLoading} />
 
                             {/* Filter Stats */}
                             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 shadow-sm border border-blue-200">

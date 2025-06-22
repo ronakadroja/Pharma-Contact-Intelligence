@@ -1,17 +1,14 @@
-import { useState, useEffect } from 'react';
+import { Building, Globe, Mail, Phone, User as UserIcon, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { createUser, updateUser } from '../api/auth';
 import { useToast } from '../context/ToastContext';
 import type { CreateUserPayload, UpdateUserPayload, User } from '../types/auth';
 import { encodePassword } from '../utils/auth';
-import { X, User as UserIcon, Mail, Phone, Building, Globe } from 'lucide-react';
-import { Button, Card, Input } from './ui/design-system';
+import { Button, Input } from './ui/design-system';
 
-interface UserWithStatus extends User {
-    status: 'Active' | 'Inactive';
-}
 
 interface UserCreationFormProps {
-    user?: UserWithStatus | null;
+    user?: User | null;
     onSuccess?: () => void;
     onCancel?: () => void;
 }
@@ -126,24 +123,24 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
             }
 
             onSuccess?.();
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : `Failed to ${user ? 'update' : 'create'} user`;
+        } catch (err: any) {
+            const errorMessage = err ? err.error : `Failed to ${user ? 'update' : 'create'} user`;
             showError(errorMessage, {
                 title: 'Error',
-                persistent: true,
-                actions: [
-                    {
-                        label: 'Try Again',
-                        onClick: () => {
-                            const form = document.querySelector('form');
-                            if (form) {
-                                const event = new Event('submit', { bubbles: true, cancelable: true });
-                                form.dispatchEvent(event);
-                            }
-                        },
-                        variant: 'primary'
-                    }
-                ]
+                persistent: false,
+                // actions: [
+                //     {
+                //         label: 'Try Again',
+                //         onClick: () => {
+                //             const form = document.querySelector('form');
+                //             if (form) {
+                //                 const event = new Event('submit', { bubbles: true, cancelable: true });
+                //                 form.dispatchEvent(event);
+                //             }
+                //         },
+                //         variant: 'primary'
+                //     }
+                // ]
             });
         } finally {
             setIsLoading(false);

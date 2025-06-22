@@ -17,7 +17,7 @@ export interface Contact {
     person_linked_url: string;
     company_linked_url: string;
     company_website: string;
-    status: 'Active' | 'Inactive';
+    status: string;
 }
 
 export interface ContactsResponse {
@@ -158,10 +158,13 @@ export interface SavedContactsResponse {
 
 export const getSavedContacts = async (): Promise<SavedContactsResponse> => {
     try {
-        const response = await api.get<SavedContactsResponse>('/contacts/saved/list');
+        const url = getContactUrl('SAVED');
+        console.log('Attempting to fetch saved contacts from URL:', url);
+        const response = await api.get<SavedContactsResponse>(url);
         return response.data;
     } catch (error) {
         console.error('Error fetching saved contacts:', error);
+        console.error('Failed URL was:', getContactUrl('SAVED'));
         throw error;
     }
 };

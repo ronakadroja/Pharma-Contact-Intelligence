@@ -24,7 +24,7 @@ interface SavedContact {
 }
 
 const MyListPage = () => {
-    const { showToast } = useToast();
+    const { success, error: showError } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [savedContacts, setSavedContacts] = useState<SavedContact[]>([]);
     const [availableCredit, setAvailableCredit] = useState<string>("");
@@ -39,9 +39,35 @@ const MyListPage = () => {
             setSavedContacts(formattedContacts);
             setAvailableCredit(response.available_credit);
             setIsLoading(false);
-        } catch (error) {
-            console.error('Error fetching saved contacts:', error);
-            showToast('Failed to fetch saved contacts', 'error');
+        } catch (err: any) {
+            console.error('Error fetching saved contacts:', err);
+
+            // Extract error message from different possible response structures
+            let errorMessage = 'Failed to fetch saved contacts';
+
+            if (err?.response?.data) {
+                if (err.response.data.error) {
+                    errorMessage = err.response.data.error;
+                } else if (err.response.data.message) {
+                    errorMessage = err.response.data.message;
+                } else if (typeof err.response.data === 'string') {
+                    errorMessage = err.response.data;
+                }
+            } else if (err?.message) {
+                errorMessage = err.message;
+            }
+
+            showError(errorMessage, {
+                title: 'Failed to Load Contacts',
+                duration: 8000,
+                actions: [
+                    {
+                        label: 'Retry',
+                        onClick: () => fetchSavedContacts(),
+                        variant: 'primary'
+                    }
+                ]
+            });
             setIsLoading(false);
         }
     };
@@ -52,7 +78,9 @@ const MyListPage = () => {
 
     const handleRemove = (contact: SavedContact) => {
         setSavedContacts(prev => prev.filter(c => c.id !== contact.id));
-        showToast(`Removed ${contact.person_name} from your list`, 'info');
+        success(`Removed ${contact.person_name} from your list`, {
+            title: 'Contact Removed'
+        });
     };
 
     const handleExport = () => {
@@ -108,10 +136,15 @@ const MyListPage = () => {
             link.click();
             document.body.removeChild(link);
 
-            showToast('Contacts exported successfully', 'success');
+            success('Contacts exported successfully!', {
+                title: 'Export Complete'
+            });
         } catch (error) {
             console.error('Error exporting contacts:', error);
-            showToast('Failed to export contacts', 'error');
+            showError('Failed to export contacts', {
+                title: 'Export Failed',
+                duration: 6000
+            });
         }
     };
 

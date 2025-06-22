@@ -1,14 +1,14 @@
 import { useAppContext } from '../context/AppContext';
-import { Search, List, CreditCard, LogOut, ArrowRight } from 'lucide-react';
+import { Search, List, CreditCard, LogOut, ArrowRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, Badge } from '../components/ui/design-system';
 
 const UserDashboard = () => {
-    const { user, coins, logout } = useAppContext();
+    const { user, coins, logout, isLoggingOut } = useAppContext();
     const navigate = useNavigate();
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/login');
     };
 
@@ -28,10 +28,15 @@ const UserDashboard = () => {
                             <span className="text-neutral-700">Welcome, {user?.name}</span>
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-2 px-4 py-2 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-xl transition-colors"
+                                disabled={isLoggingOut}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <LogOut size={18} />
-                                Logout
+                                {isLoggingOut ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : (
+                                    <LogOut size={18} />
+                                )}
+                                {isLoggingOut ? 'Logging out...' : 'Logout'}
                             </button>
                         </div>
                         {/* Mobile Menu Button */}
@@ -42,9 +47,14 @@ const UserDashboard = () => {
                             </Badge>
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-1 px-2 py-1.5 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-lg transition-colors"
+                                disabled={isLoggingOut}
+                                className="flex items-center gap-1 px-2 py-1.5 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <LogOut size={16} />
+                                {isLoggingOut ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                ) : (
+                                    <LogOut size={16} />
+                                )}
                                 <span className="hidden">Logout</span>
                             </button>
                         </div>

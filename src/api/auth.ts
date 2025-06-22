@@ -36,17 +36,11 @@ export const createUser = async (userData: CreateUserPayload): Promise<CreateUse
     try {
         const response = await api.post<CreateUserResponse>(getUserUrl('CREATE'), userData);
         return response.data;
-    } catch (error) {
-        if (error && typeof error === 'object' && 'isAxiosError' in error) {
-            const axiosError = error as { response?: { status: number } };
-            if (axiosError.response?.status === 409) {
-                throw new Error('User with this email already exists');
-            }
-            if (axiosError.response?.status === 400) {
-                throw new Error('Invalid user data provided');
-            }
-        }
-        throw new Error('Failed to create user. Please try again.');
+    } catch (error: any) {
+        console.error('Error creating user:', error);
+        // Re-throw the original Axios error to preserve response data and status codes
+        // This allows the UserCreationForm to handle the specific error scenarios
+        throw error;
     }
 };
 
@@ -88,19 +82,10 @@ export const updateUser = async (userId: string, userData: UpdateUserPayload): P
         const response = await api.put<User>(getUserUrl('UPDATE', userId), userData);
         return response.data;
     } catch (error) {
-        if (error && typeof error === 'object' && 'isAxiosError' in error) {
-            const axiosError = error as { response?: { status: number } };
-            if (axiosError.response?.status === 409) {
-                throw new Error('User with this email already exists');
-            }
-            if (axiosError.response?.status === 400) {
-                throw new Error('Invalid user data provided');
-            }
-            if (axiosError.response?.status === 404) {
-                throw new Error('User not found');
-            }
-        }
-        throw new Error('Failed to update user. Please try again.');
+        console.error('Error updating user:', error);
+        // Re-throw the original Axios error to preserve response data and status codes
+        // This allows the UserCreationForm to handle the specific error scenarios
+        throw error;
     }
 };
 

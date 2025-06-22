@@ -29,7 +29,7 @@ const ListingPage = () => {
     }, [showToast]);
 
     const handleFilter = (filters: FilterState) => {
-        setIsLoading(true);
+        // setIsLoading(true);
         setShowMobileFilters(false); // Close mobile filters after applying
 
         // Simulate filter delay

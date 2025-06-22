@@ -1,6 +1,6 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import { Download, Pencil, Plus, Trash2, Upload, Filter } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
     deleteContact,
     getContacts,
@@ -56,6 +56,7 @@ const ContactManagement = () => {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
     const { success, error: showError } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
     const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
     const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
@@ -163,7 +164,7 @@ const ContactManagement = () => {
 
             showError(errorMessage, {
                 title: 'Search Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
             setError(errorMessage);
             setContactsData(null);
@@ -224,7 +225,7 @@ const ContactManagement = () => {
         } catch (error) {
             showError(error instanceof Error ? error.message : 'Failed to delete contact', {
                 title: 'Delete Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         } finally {
             setShowDeleteConfirmation(false);
@@ -233,8 +234,10 @@ const ContactManagement = () => {
     };
 
     const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log('Bulk upload triggered', e.target.files);
         const file = e.target.files?.[0];
         if (file) {
+            console.log('File selected:', file.name, file.type, file.size);
             try {
                 success('Bulk upload started. Processing file...', {
                     title: 'Upload Started',
@@ -243,10 +246,16 @@ const ContactManagement = () => {
                 const response = await bulkImportContacts(file);
 
                 // Handle file validation error
-                if (response.file) {
+                if (response.file && Array.isArray(response.file) && response.file.length > 0) {
                     showError(response.file[0], {
                         title: 'File Validation Error',
-                        persistent: true
+                        duration: 8000 // Auto-close after 8 seconds
+                    });
+                    return;
+                } else if (response.file && typeof response.file === 'string') {
+                    showError(response.file, {
+                        title: 'File Validation Error',
+                        duration: 8000 // Auto-close after 8 seconds
                     });
                     return;
                 }
@@ -264,7 +273,7 @@ const ContactManagement = () => {
                             `Imported ${response.success} contacts with ${response.failure} failures. Check error details below.`,
                             {
                                 title: 'Partial Import',
-                                persistent: true
+                                duration: 10000 // Auto-close after 10 seconds for important info
                             }
                         );
 
@@ -277,7 +286,7 @@ const ContactManagement = () => {
                                     }`;
                                 showError(errorMessage, {
                                     title: 'Import Error',
-                                    persistent: true
+                                    duration: 8000 // Auto-close after 8 seconds
                                 });
                             });
                         }
@@ -286,12 +295,12 @@ const ContactManagement = () => {
                     // Refresh the contacts list after import
                     fetchContacts(currentPage);
                 }
-            } catch (error) {
+            } catch (error: any) {
                 showError(
-                    error instanceof Error ? error.message : 'Failed to import contacts',
+                    error.file[0],
                     {
                         title: 'Import Failed',
-                        persistent: true
+                        duration: 8000 // Auto-close after 8 seconds
                     }
                 );
             } finally {
@@ -307,6 +316,11 @@ const ContactManagement = () => {
             title: 'Export Started',
             showProgress: false
         });
+    };
+
+    const handleBulkUploadClick = () => {
+        console.log('Bulk upload button clicked');
+        fileInputRef.current?.click();
     };
 
     const handleFormSuccess = () => {
@@ -333,7 +347,7 @@ const ContactManagement = () => {
         } catch (error) {
             showError(error instanceof Error ? error.message : 'Failed to delete contacts', {
                 title: 'Bulk Delete Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         } finally {
             setShowBulkDeleteConfirmation(false);
@@ -360,7 +374,7 @@ const ContactManagement = () => {
         } catch (error) {
             showError(error instanceof Error ? error.message : 'Failed to update contact status', {
                 title: 'Status Update Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         } finally {
             setShowBulkStatusConfirmation(false);
@@ -379,7 +393,7 @@ const ContactManagement = () => {
             console.error('Error revealing contact:', error);
             showError('Failed to reveal contact information', {
                 title: 'Reveal Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         }
     };
@@ -403,20 +417,23 @@ const ContactManagement = () => {
                         >
                             <span className="hidden sm:inline">Export</span>
                         </Button>
-                        <label className="cursor-pointer">
+                        <div>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".csv,.xlsx,.xls"
+                                onChange={handleBulkUpload}
+                                className="hidden"
+                                title="Upload CSV or Excel file"
+                            />
                             <Button
+                                onClick={handleBulkUploadClick}
                                 icon={<Upload size={18} />}
-                                className="pointer-events-none"
+                                type="button"
                             >
                                 <span className="hidden sm:inline">Bulk Upload</span>
                             </Button>
-                            <input
-                                type="file"
-                                accept=".csv,.xlsx"
-                                onChange={handleBulkUpload}
-                                className="hidden"
-                            />
-                        </label>
+                        </div>
                         <Button
                             onClick={handleAddContact}
                             icon={<Plus size={18} />}
@@ -564,7 +581,7 @@ const ContactManagement = () => {
                                     <option value="Inactive">Set Inactive</option>
                                 </select>
                                 <Button
-                                    variant="error"
+                                    variant="danger"
                                     size="sm"
                                     onClick={handleBulkDeleteClick}
                                 >
@@ -599,7 +616,7 @@ const ContactManagement = () => {
                                         <option value="Inactive">Set Inactive</option>
                                     </select>
                                     <Button
-                                        variant="error"
+                                        variant="danger"
                                         onClick={handleBulkDeleteClick}
                                         className="w-full justify-center"
                                     >

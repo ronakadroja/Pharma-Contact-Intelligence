@@ -33,7 +33,8 @@ api.interceptors.response.use(
             localStorage.removeItem(CURRENT_API_CONFIG.AUTH.TOKEN_KEY);
             window.location.href = '/login';
         }
-        return Promise.reject(new Error(error.response?.data?.message ?? error.message ?? 'Request failed'));
+        console.log(error.response?.data);
+        return Promise.reject(error.response?.data);
     }
 );
 

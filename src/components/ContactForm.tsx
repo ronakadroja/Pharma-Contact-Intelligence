@@ -79,28 +79,92 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
             }
 
             onSuccess?.();
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-            const actionType = contact ? 'update' : 'add';
-            const fullErrorMessage = `Failed to ${actionType} contact. ${errorMessage}`;
+        } catch (err: any) {
+            console.error('Contact creation/update error:', err);
 
-            showError(fullErrorMessage, {
-                title: 'Error',
-                persistent: true,
-                actions: [
-                    {
-                        label: 'Try Again',
-                        onClick: () => {
-                            const form = document.querySelector('form');
-                            if (form) {
-                                const event = new Event('submit', { bubbles: true, cancelable: true });
-                                form.dispatchEvent(event);
-                            }
+            // Extract error message and status code
+            let errorMessage = `Failed to ${contact ? 'update' : 'add'} contact`;
+            let statusCode = err?.response?.status;
+            let isDuplicateError = false;
+
+            if (err?.response?.data) {
+                // Handle different API response structures
+                if (err.response.data.error) {
+                    errorMessage = err.response.data.error;
+                    // Check for duplicate/already exists errors
+                    isDuplicateError = errorMessage.toLowerCase().includes('already exists') ||
+                        errorMessage.toLowerCase().includes('duplicate') ||
+                        errorMessage.toLowerCase().includes('unique constraint');
+                } else if (err.response.data.message) {
+                    errorMessage = err.response.data.message;
+                } else if (typeof err.response.data === 'string') {
+                    errorMessage = err.response.data;
+                }
+            } else if (err?.message) {
+                errorMessage = err.message;
+            }
+
+            // Handle specific scenarios
+            if (statusCode === 422 && isDuplicateError) {
+                // Duplicate contact - provide specific guidance
+                showError(errorMessage, {
+                    title: 'Contact Already Exists',
+                    duration: 10000, // Longer duration for important info
+                    actions: [
+                        {
+                            label: 'Change Email',
+                            onClick: () => {
+                                // Focus on email field for user to change it
+                                const emailInput = document.getElementById('email') as HTMLInputElement;
+                                if (emailInput) {
+                                    emailInput.focus();
+                                    emailInput.select();
+                                }
+                                setIsLoading(false);
+                            },
+                            variant: 'primary'
                         },
-                        variant: 'primary'
-                    }
-                ]
-            });
+                        {
+                            label: 'Clear Form',
+                            onClick: () => {
+                                // Reset form to initial state
+                                window.location.reload();
+                            },
+                            variant: 'secondary'
+                        }
+                    ]
+                });
+            } else if (statusCode === 422) {
+                // Other validation errors
+                showError(errorMessage, {
+                    title: 'Validation Error',
+                    duration: 8000,
+                    actions: [
+                        {
+                            label: 'Fix & Retry',
+                            onClick: () => {
+                                setIsLoading(false);
+                            },
+                            variant: 'primary'
+                        }
+                    ]
+                });
+            } else {
+                // General errors
+                showError(errorMessage, {
+                    title: 'Error',
+                    duration: 8000,
+                    actions: [
+                        {
+                            label: 'Try Again',
+                            onClick: () => {
+                                setIsLoading(false);
+                            },
+                            variant: 'primary'
+                        }
+                    ]
+                });
+            }
         } finally {
             setIsLoading(false);
         }

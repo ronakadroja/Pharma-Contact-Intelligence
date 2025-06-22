@@ -11,7 +11,8 @@ import {
     X,
     BarChart2,
     Upload,
-    ChevronRight
+    ChevronRight,
+    Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence, easeInOut } from 'framer-motion';
 import type { Variants } from 'framer-motion';
@@ -48,7 +49,7 @@ const menuItemVariants: Variants = {
 
 const AdminLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const { user, logout } = useAppContext();
+    const { user, logout, isLoggingOut } = useAppContext();
     const navigate = useNavigate();
     const location = useLocation();
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -103,8 +104,8 @@ const AdminLayout = () => {
         api.start({ x: sidebarOpen ? 0 : -320 });
     }, [sidebarOpen, api]);
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/login');
     };
 
@@ -264,10 +265,17 @@ const AdminLayout = () => {
                             <span className="hidden sm:inline text-neutral-700 font-medium">Welcome, {user?.name}</span>
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-xl transition-all duration-200"
+                                disabled={isLoggingOut}
+                                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <LogOut size={18} />
-                                <span className="hidden sm:inline">Logout</span>
+                                {isLoggingOut ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : (
+                                    <LogOut size={18} />
+                                )}
+                                <span className="hidden sm:inline">
+                                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                                </span>
                             </button>
                         </div>
                     </div>

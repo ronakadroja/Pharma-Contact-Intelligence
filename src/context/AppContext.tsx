@@ -13,6 +13,7 @@ interface AppContextType {
     user: User | null;
     setUser: (user: User | null) => void;
     isAuthenticated: boolean;
+    isLoggingOut: boolean;
     login: (username: string, password: string) => Promise<boolean>;
     logout: () => Promise<void>;
 }
@@ -32,6 +33,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [myList, setMyList] = useState<Contact[]>([]);
     const [user, setUser] = useState<User | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     // Check for existing token and user data on app initialization
     useEffect(() => {
@@ -113,6 +115,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const logout = async () => {
+        setIsLoggingOut(true);
         try {
             await apiLogout();
         } catch (error) {
@@ -124,6 +127,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setUser(null);
             setCoins(0);
             setMyList([]);
+            setIsLoggingOut(false);
         }
     };
 
@@ -142,6 +146,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 user,
                 setUser,
                 isAuthenticated: !!user,
+                isLoggingOut,
                 login,
                 logout
             }}

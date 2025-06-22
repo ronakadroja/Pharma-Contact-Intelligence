@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { LogIn, Mail, Lock } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui/design-system';
+import { encodePassword } from '../utils/auth';
 
 const LoginPage = () => {
     const [username, setUsername] = useState('');
@@ -18,7 +19,7 @@ const LoginPage = () => {
         setIsLoading(true);
 
         try {
-            const loginSuccess = await login(username, password);
+            const loginSuccess = await login(username, encodePassword(password));
             if (loginSuccess) {
                 success('Successfully logged in!', {
                     title: 'Welcome',

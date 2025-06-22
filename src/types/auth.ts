@@ -23,6 +23,7 @@ export interface User {
     country: string;
     role: string;
     credits: number;
+    status: string;
     createdAt?: string;
 }
 

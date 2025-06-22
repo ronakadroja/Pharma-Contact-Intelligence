@@ -30,21 +30,18 @@ import { format } from 'date-fns';
 import classNames from 'classnames';
 import { Button, Card, Input, Badge } from '../../components/ui/design-system';
 
-interface UserWithStatus extends User {
-    status: 'Active' | 'Deactive';
-    lastActive?: string;
-}
 
-const columnHelper = createColumnHelper<UserWithStatus>();
+
+const columnHelper = createColumnHelper<User>();
 
 const ITEMS_PER_PAGE = 10;
 
 const UserManagement = () => {
-    const [users, setUsers] = useState<UserWithStatus[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<UserWithStatus | null>(null);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
     const [selectedRows, setSelectedRows] = useState<RowSelectionState>({});
@@ -53,27 +50,27 @@ const UserManagement = () => {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const { success, error: showError } = useToast();
 
-    const columns = useMemo<ColumnDef<UserWithStatus, any>[]>(
+    const columns = useMemo<ColumnDef<User, any>[]>(
         () => [
-            columnHelper.display({
-                id: 'select',
-                header: ({ table }) => (
-                    <input
-                        type="checkbox"
-                        checked={table.getIsAllRowsSelected()}
-                        onChange={table.getToggleAllRowsSelectedHandler()}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                ),
-                cell: ({ row }) => (
-                    <input
-                        type="checkbox"
-                        checked={row.getIsSelected()}
-                        onChange={row.getToggleSelectedHandler()}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                ),
-            }),
+            // columnHelper.display({
+            //     id: 'select',
+            //     header: ({ table }) => (
+            //         <input
+            //             type="checkbox"
+            //             checked={table.getIsAllRowsSelected()}
+            //             onChange={table.getToggleAllRowsSelectedHandler()}
+            //             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            //         />
+            //     ),
+            //     cell: ({ row }) => (
+            //         <input
+            //             type="checkbox"
+            //             checked={row.getIsSelected()}
+            //             onChange={row.getToggleSelectedHandler()}
+            //             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            //         />
+            //     ),
+            // }),
             columnHelper.accessor('name', {
                 header: 'Name',
                 cell: (info) => info.getValue(),
@@ -104,27 +101,27 @@ const UserManagement = () => {
                     </Badge>
                 ),
             }),
-            columnHelper.accessor('lastActive', {
-                header: 'Last Active',
-                cell: (info) => info.getValue() ? format(new Date(info.getValue()!), 'MMM dd, yyyy HH:mm') : 'Never',
-            }),
+            // columnHelper.accessor('lastActive', {
+            //     header: 'Last Active',
+            //     cell: (info) => info.getValue() ? format(new Date(info.getValue()!), 'MMM dd, yyyy HH:mm') : 'Never',
+            // }),
             columnHelper.display({
                 id: 'actions',
                 header: 'Actions',
                 cell: ({ row }) => (
-                    <div className="flex space-x-2">
+                    <div className="  space-x-2 text-center">
                         <button
                             onClick={() => handleEditUser(row.original)}
                             className="text-blue-600 hover:text-blue-900 focus:outline-none"
                         >
                             <PencilIcon className="h-5 w-5" />
                         </button>
-                        <button
+                        {/* <button
                             onClick={() => handleDeleteUser(row.original.id)}
                             className="text-red-600 hover:text-red-900 focus:outline-none"
                         >
                             <Trash2 className="h-5 w-5" />
-                        </button>
+                        </button> */}
                     </div>
                 ),
             }),
@@ -137,10 +134,8 @@ const UserManagement = () => {
         setError(null);
         try {
             const response = await getUsers();
-            const usersWithStatus: UserWithStatus[] = response.map(user => ({
+            const usersWithStatus: User[] = response.map(user => ({
                 ...user,
-                status: 'Active',
-                lastActive: new Date().toISOString()
             }));
             setUsers(usersWithStatus);
         } catch (err) {
@@ -166,7 +161,7 @@ const UserManagement = () => {
         } catch (err) {
             showError(err instanceof Error ? err.message : 'Failed to delete user', {
                 title: 'Delete Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         }
     };
@@ -185,7 +180,7 @@ const UserManagement = () => {
         } catch (err) {
             showError(err instanceof Error ? err.message : 'Failed to delete users', {
                 title: 'Bulk Delete Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         }
     };
@@ -202,7 +197,7 @@ const UserManagement = () => {
         } catch (err) {
             showError(err instanceof Error ? err.message : 'Failed to update user status', {
                 title: 'Status Update Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         }
     };
@@ -219,12 +214,12 @@ const UserManagement = () => {
         } catch (err) {
             showError(err instanceof Error ? err.message : 'Failed to update user role', {
                 title: 'Role Update Failed',
-                persistent: true
+                duration: 6000 // Auto-close after 6 seconds
             });
         }
     };
 
-    const handleEditUser = (user: UserWithStatus) => {
+    const handleEditUser = (user: User) => {
         setSelectedUser(user);
         setShowModal(true);
     };

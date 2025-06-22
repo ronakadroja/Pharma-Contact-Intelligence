@@ -132,8 +132,8 @@ const AdminDashboard = () => {
                 </Card>
             </div>
 
-            {/* Toast Demo Section */}
-            <ToastDemo />
+            {/* Toast Demo Section
+            <ToastDemo /> */}
         </div>
     );
 };
