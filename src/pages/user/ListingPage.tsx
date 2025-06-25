@@ -21,7 +21,7 @@ const ListingPage = () => {
     const [contactsData, setContactsData] = useState<ContactsResponse | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
-    const [showMobileFilters, setShowMobileFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(true); // true = visible by default
     const [searchParams, setSearchParams] = useState({
         company_name: '',
         designation: '',
@@ -166,6 +166,19 @@ const ListingPage = () => {
         }
     }, [searchParams]);
 
+    // Load filter visibility state from localStorage on component mount
+    useEffect(() => {
+        const savedFilterVisibility = localStorage.getItem('contactsFilterVisibility');
+        if (savedFilterVisibility !== null) {
+            setShowFilters(savedFilterVisibility === 'true');
+        }
+    }, []);
+
+    // Save filter visibility state to localStorage
+    useEffect(() => {
+        localStorage.setItem('contactsFilterVisibility', showFilters.toString());
+    }, [showFilters]);
+
     const handleFilter = (filters: FilterState) => {
         const previousFilters = { ...searchParams };
         const newFilters = {
@@ -201,11 +214,11 @@ const ListingPage = () => {
             <div className="lg:hidden sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 py-3">
                     <button
-                        onClick={() => setShowMobileFilters((prev) => !prev)}
+                        onClick={() => setShowFilters(!showFilters)}
                         className="flex items-center justify-center w-full gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     >
                         <Filter size={16} />
-                        <span>Show Filters</span>
+                        <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
                         <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             {Object.values(searchParams).filter(Boolean).length}
                         </span>
@@ -214,12 +227,12 @@ const ListingPage = () => {
             </div>
 
             {/* Mobile Filter Panel - Inline, not overlay */}
-            <div className={`lg:hidden transition-all duration-300 ${showMobileFilters ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+            <div className={`lg:hidden transition-all duration-300 ${showFilters ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
                 <div className="bg-white border-b border-gray-200 px-4 py-4">
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-lg font-medium text-gray-900">Filters</h2>
                         <button
-                            onClick={() => setShowMobileFilters(false)}
+                            onClick={() => setShowFilters(false)}
                             className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                         >
                             <X size={24} />
@@ -231,29 +244,31 @@ const ListingPage = () => {
 
             <div className="max-w-[90rem] mx-auto px-4 py-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Sidebar with filters - Only visible on desktop */}
-                    <div className="hidden lg:block w-72 flex-shrink-0">
-                        <div className="sticky top-4 space-y-6">
-                            <FilterPanel onFilter={handleFilter} isMobile={false} isLoading={isLoading} />
+                    {/* Sidebar with filters - Visible based on showFilters state */}
+                    {showFilters && (
+                        <div className={`${showFilters ? 'w-full lg:w-72' : '0'} flex-shrink-0 transition-all duration-300`}>
+                            <div className="sticky top-4 space-y-6">
+                                <FilterPanel onFilter={handleFilter} isMobile={false} isLoading={isLoading} />
 
-                            {/* Filter Stats */}
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 shadow-sm border border-blue-200">
-                                <h3 className="text-sm font-medium text-blue-800 mb-2">Current Selection</h3>
-                                <div className="text-sm text-blue-700">
-                                    <p className="flex items-center gap-2">
-                                        <span>Total Results:</span>
-                                        <span className="font-medium">{totalItems}</span>
-                                    </p>
-                                    <p className="flex items-center gap-2 mt-1">
-                                        <span>Page</span>
-                                        <span className="font-medium">{currentPage}</span>
-                                        <span>of</span>
-                                        <span className="font-medium">{totalPages}</span>
-                                    </p>
+                                {/* Filter Stats */}
+                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 shadow-sm border border-blue-200">
+                                    <h3 className="text-sm font-medium text-blue-800 mb-2">Current Selection</h3>
+                                    <div className="text-sm text-blue-700">
+                                        <p className="flex items-center gap-2">
+                                            <span>Total Results:</span>
+                                            <span className="font-medium">{totalItems}</span>
+                                        </p>
+                                        <p className="flex items-center gap-2 mt-1">
+                                            <span>Page</span>
+                                            <span className="font-medium">{currentPage}</span>
+                                            <span>of</span>
+                                            <span className="font-medium">{totalPages}</span>
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Main content - Responsive for both desktop and mobile */}
                     <div className="flex-1 min-w-0">
@@ -267,11 +282,20 @@ const ListingPage = () => {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
-                                            {!isLoading && contactsData &&
-                                                `Showing ${Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalItems)}-${Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of ${totalItems}`
-                                            }
-                                        </span>
+                                        {/* Desktop Filter Toggle Button */}
+                                        <button
+                                            onClick={() => setShowFilters(!showFilters)}
+                                            className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        >
+                                            <Filter size={16} />
+                                            <span>{showFilters ? 'Hide Filter' : 'Show Filter'}</span>
+                                            {Object.values(searchParams).filter(Boolean).length > 0 && (
+                                                <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {Object.values(searchParams).filter(Boolean).length}
+                                                </span>
+                                            )}
+                                        </button>
+
                                     </div>
                                 </div>
                             </div>
@@ -317,4 +341,8 @@ const ListingPage = () => {
     );
 };
 
-export default ListingPage; 
+export default ListingPage;
+
+
+
+
