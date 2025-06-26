@@ -8,7 +8,7 @@
 // API Configuration Object
 export const API_CONFIG = {
   // Base URL for all API calls
-  BASE_URL: 'https://3148-152-58-35-171.ngrok-free.app',
+  BASE_URL: 'http://65.1.45.90/',
 
   // API Version (if your API uses versioning)
   VERSION: 'v1',
@@ -68,7 +68,7 @@ export const API_CONFIG = {
 export const ENVIRONMENT_CONFIG = {
   development: {
     ...API_CONFIG,
-    BASE_URL: 'https://2f9b-152-58-63-223.ngrok-free.app', // Development API URL
+    BASE_URL: 'http://65.1.45.90/', // Development API URL
     TIMEOUT: 30000,
   },
 
@@ -80,7 +80,7 @@ export const ENVIRONMENT_CONFIG = {
 
   production: {
     ...API_CONFIG,
-    BASE_URL: 'https://2f9b-152-58-63-223.ngrok-free.app', // Production API URL
+    BASE_URL: 'http://65.1.45.90/', // Production API URL
     TIMEOUT: 20000,
   }
 };
