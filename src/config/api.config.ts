@@ -68,20 +68,20 @@ export const API_CONFIG = {
 export const ENVIRONMENT_CONFIG = {
   development: {
     ...API_CONFIG,
-    BASE_URL: 'http://65.1.45.90/', // Development API URL
-    TIMEOUT: 30000,
+    BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://65.1.45.90/', // Development API URL
+    TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
   },
 
   staging: {
     ...API_CONFIG,
-    BASE_URL: 'https://staging-api.yourapp.com', // Staging API URL
-    TIMEOUT: 25000,
+    BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'https://65.1.45.90/', // Staging API URL (use HTTPS if available)
+    TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 25000,
   },
 
   production: {
     ...API_CONFIG,
-    BASE_URL: 'http://65.1.45.90/', // Production API URL
-    TIMEOUT: 20000,
+    BASE_URL: import.meta.env.VITE_API_BASE_URL ?? '', // Use relative URLs for Vercel proxy - API calls will go to same domain
+    TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 20000,
   }
 };
 
