@@ -60,6 +60,12 @@ export const API_CONFIG = {
       BULK_IMPORT: '/api/contacts/bulk/import',
       EXPORT: '/api/contacts/export',
       SAVED: '/api/contacts/saved/list'
+    },
+
+    // Combo/dropdown data endpoints
+    COMBO: {
+      COMPANY: '/api/combo/contacts', // For company names
+      COUNTRY: '/api/combo/country'   // For countries
     }
   }
 };

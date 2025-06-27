@@ -10,9 +10,9 @@ import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../context/ToastContext";
 
 interface FilterState {
-    company_name: string;
+    company_name: string[];
     designation: string;
-    person_country: string;
+    person_country: string[];
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -23,9 +23,9 @@ const ListingPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(true); // true = visible by default
     const [searchParams, setSearchParams] = useState({
-        company_name: '',
+        company_name: [] as string[],
         designation: '',
-        person_country: '',
+        person_country: [] as string[],
     });
     const [sorting, setSorting] = useState<SortingState>([]);
     const { showToast } = useToast();
@@ -120,11 +120,21 @@ const ListingPage = () => {
     const fetchContacts = async (page: number = 1, showSuccessToast: boolean = false) => {
         try {
             setIsLoading(true);
-            const response = await getContacts({
+
+            // Convert arrays to comma-separated strings for API
+            const apiParams = {
                 ...searchParams,
+                company_name: Array.isArray(searchParams.company_name)
+                    ? searchParams.company_name.join(',')
+                    : searchParams.company_name,
+                person_country: Array.isArray(searchParams.person_country)
+                    ? searchParams.person_country.join(',')
+                    : searchParams.person_country,
                 page,
                 per_page: ITEMS_PER_PAGE
-            });
+            };
+
+            const response = await getContacts(apiParams);
             setContactsData(response);
             if (showSuccessToast) {
                 showToast('Contact data loaded successfully', 'success');
@@ -188,8 +198,18 @@ const ListingPage = () => {
         };
 
         // Check if filters are being cleared
-        const isClearing = Object.values(newFilters).every(value => value === '');
-        const wasFiltered = Object.values(previousFilters).some(value => value !== '');
+        const isClearing = Object.values(newFilters).every(value => {
+            if (Array.isArray(value)) {
+                return value.length === 0;
+            }
+            return value === '';
+        });
+        const wasFiltered = Object.values(previousFilters).some(value => {
+            if (Array.isArray(value)) {
+                return value.length > 0;
+            }
+            return value !== '';
+        });
 
         setSearchParams(newFilters);
 
@@ -198,7 +218,12 @@ const ListingPage = () => {
             // This will be handled by the useEffect above
         } else if (!isClearing) {
             // Filters are being applied
-            const activeFilterCount = Object.values(newFilters).filter(value => value !== '').length;
+            const activeFilterCount = Object.values(newFilters).filter(value => {
+                if (Array.isArray(value)) {
+                    return value.length > 0;
+                }
+                return value !== '';
+            }).length;
             showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`, 'success');
         }
     };

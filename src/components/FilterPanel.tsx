@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { X, Filter, ChevronDown, ChevronUp, Search } from "lucide-react";
+import Multiselect from 'multiselect-react-dropdown';
 import useDebounce from "../hooks/useDebounce";
 import { Card, Badge } from "./ui/design-system";
+import { fetchCompanies, fetchCountries, type CompanyOption } from "../api/combo";
 
 interface FilterState {
-    company_name: string;
+    company_name: string[];
     designation: string;
-    person_country: string;
+    person_country: string[];
 }
 
 interface FilterPanelProps {
@@ -16,53 +18,94 @@ interface FilterPanelProps {
 }
 
 const initialFilters: FilterState = {
-    company_name: "",
+    company_name: [],
     designation: "",
-    person_country: ""
+    person_country: []
 };
 
 
 
 const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps) => {
     const [filters, setFilters] = useState<FilterState>(initialFilters);
-    const [localCompanyName, setLocalCompanyName] = useState("");
     const [localDesignation, setLocalDesignation] = useState("");
-    const [localCountry, setLocalCountry] = useState("");
     const [isOpen, setIsOpen] = useState(true);
     const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
-    const debouncedCompanyName = useDebounce(localCompanyName, 500);
+    // State for companies dropdown
+    const [companies, setCompanies] = useState<CompanyOption[]>([]);
+    const [selectedCompanies, setSelectedCompanies] = useState<CompanyOption[]>([]);
+    const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
+
+    // State for countries dropdown
+    const [countries, setCountries] = useState<CompanyOption[]>([]);
+    const [selectedCountries, setSelectedCountries] = useState<CompanyOption[]>([]);
+    const [isLoadingCountries, setIsLoadingCountries] = useState(false);
+
     const debouncedDesignation = useDebounce(localDesignation, 500);
-    const debouncedCountry = useDebounce(localCountry, 500);
+
+    // Load companies and countries on component mount
+    useEffect(() => {
+        const loadData = async () => {
+            setIsLoadingCompanies(true);
+            setIsLoadingCountries(true);
+
+            try {
+                const [companyData, countryData] = await Promise.all([
+                    fetchCompanies(),
+                    fetchCountries()
+                ]);
+                setCompanies(companyData);
+                setCountries(countryData);
+            } catch (error) {
+                console.error('Failed to load dropdown data:', error);
+            } finally {
+                setIsLoadingCompanies(false);
+                setIsLoadingCountries(false);
+            }
+        };
+
+        loadData();
+    }, []);
 
     useEffect(() => {
-        const count = Object.values(filters).filter(value => value !== "" && value !== "All").length;
+        const count = Object.values(filters).filter(value => {
+            if (Array.isArray(value)) {
+                return value.length > 0;
+            }
+            return value !== "" && value !== "All";
+        }).length;
         setActiveFiltersCount(count);
     }, [filters]);
-
-    useEffect(() => {
-        handleChange("company_name", debouncedCompanyName);
-    }, [debouncedCompanyName]);
 
     useEffect(() => {
         handleChange("designation", debouncedDesignation);
     }, [debouncedDesignation]);
 
-    useEffect(() => {
-        handleChange("person_country", debouncedCountry);
-    }, [debouncedCountry]);
-
-    const handleChange = (key: keyof FilterState, value: string) => {
-        const newFilters = { ...filters, [key]: value === "All" ? "" : value };
+    const handleChange = (key: keyof FilterState, value: string | string[]) => {
+        const newFilters = { ...filters, [key]: value };
         setFilters(newFilters);
         onFilter(newFilters);
     };
 
+    const handleCompanySelect = (selectedList: CompanyOption[]) => {
+        setSelectedCompanies(selectedList);
+        const companyNames = selectedList.map(company => company.name);
+        handleChange("company_name", companyNames);
+    };
+
+    const handleCountrySelect = (selectedList: CompanyOption[]) => {
+        setSelectedCountries(selectedList);
+        const countryIds = selectedList.map(country => country.id);
+        handleChange("person_country", countryIds);
+    };
+
+
+
     const handleReset = () => {
         setFilters(initialFilters);
-        setLocalCompanyName("");
+        setSelectedCompanies([]);
+        setSelectedCountries([]);
         setLocalDesignation("");
-        setLocalCountry("");
         // Trigger API call immediately when clearing all filters
         onFilter(initialFilters);
     };
@@ -72,16 +115,16 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
 
         switch (field) {
             case 'company_name':
-                setLocalCompanyName("");
-                newFilters.company_name = "";
+                setSelectedCompanies([]);
+                newFilters.company_name = [];
                 break;
             case 'designation':
                 setLocalDesignation("");
                 newFilters.designation = "";
                 break;
             case 'person_country':
-                setLocalCountry("");
-                newFilters.person_country = "";
+                setSelectedCountries([]);
+                newFilters.person_country = [];
                 break;
         }
 
@@ -91,7 +134,7 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
     };
 
     return (
-        <Card variant="elevated" padding="none" className="overflow-hidden">
+        <Card variant="elevated" padding="none" >
             {/* Filter Header */}
             {!isMobile ? (
                 <button
@@ -152,30 +195,84 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
                 className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
             >
                 <div className="p-4 space-y-6">
-                    {/* Company Name Input */}
+                    {/* Company Name Multiselect */}
                     <div>
-                        <label htmlFor="company-name-input" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                             Company Name
                         </label>
                         <div className="relative">
-                            <input
-                                id="company-name-input"
-                                type="text"
-                                value={localCompanyName}
-                                onChange={(e) => setLocalCompanyName(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-10"
-                                placeholder="Search by company name..."
+                            <Multiselect
+                                options={companies}
+                                selectedValues={selectedCompanies}
+                                onSelect={handleCompanySelect}
+                                onRemove={handleCompanySelect}
+                                displayValue="name"
+                                placeholder="Search and select company names..."
+                                emptyRecordMsg="No companies found. Try a different search term."
+                                showCheckbox={true}
+                                closeIcon="cancel"
+                                showArrow={true}
+
+                                style={{
+                                    chips: {
+                                        background: '#3B82F6',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        margin: '2px'
+                                    },
+                                    searchBox: {
+                                        border: '1px solid #D1D5DB',
+                                        borderRadius: '8px',
+                                        padding: '8px 12px',
+                                        fontSize: '14px',
+                                        minHeight: '42px',
+                                        backgroundColor: 'white'
+                                    },
+                                    inputField: {
+                                        margin: '0px',
+                                        fontSize: '14px',
+                                        color: '#374151',
+                                        backgroundColor: 'transparent'
+                                    },
+                                    option: {
+                                        color: '#374151',
+                                        backgroundColor: 'white',
+                                        padding: '10px 12px',
+                                        fontSize: '14px',
+                                        borderBottom: '1px solid #F3F4F6',
+                                        cursor: 'pointer'
+                                    },
+                                    optionContainer: {
+                                        border: '1px solid #D1D5DB',
+                                        borderRadius: '8px',
+                                        maxHeight: '250px',
+                                        marginTop: '4px',
+                                        backgroundColor: 'white',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                        zIndex: 1000
+                                    },
+                                    multiselectContainer: {
+                                        color: '#374151'
+                                    },
+                                    highlightOption: {
+                                        backgroundColor: '#EBF8FF',
+                                        color: '#1E40AF'
+                                    }
+                                }}
+                                loading={isLoadingCompanies}
+                                disable={isLoading || isLoadingCompanies}
                             />
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            {localCompanyName && (
+                            {selectedCompanies.length > 0 && (
                                 <button
                                     onClick={() => clearField('company_name')}
                                     disabled={isLoading}
-                                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-colors ${isLoading
+                                    className={`absolute right-3 top-3 transition-colors z-10 ${isLoading
                                         ? 'text-gray-300 cursor-not-allowed'
                                         : 'text-gray-400 hover:text-gray-600'
                                         }`}
-                                    title={isLoading ? 'Loading...' : 'Clear company name'}
+                                    title={isLoading ? 'Loading...' : 'Clear company names'}
                                 >
                                     <X size={16} />
                                 </button>
@@ -214,30 +311,84 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
                         </div>
                     </div>
 
-                    {/* Country Input */}
+                    {/* Country Multiselect */}
                     <div>
-                        <label htmlFor="country-input" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                             Country
                         </label>
                         <div className="relative">
-                            <input
-                                id="country-input"
-                                type="text"
-                                value={localCountry}
-                                onChange={(e) => setLocalCountry(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-10"
-                                placeholder="Search by country..."
+                            <Multiselect
+                                options={countries}
+                                selectedValues={selectedCountries}
+                                onSelect={handleCountrySelect}
+                                onRemove={handleCountrySelect}
+                                displayValue="name"
+                                placeholder="Search and select countries..."
+                                emptyRecordMsg="No countries found. Try a different search term."
+                                showCheckbox={true}
+                                closeIcon="cancel"
+                                showArrow={true}
+
+                                style={{
+                                    chips: {
+                                        background: '#3B82F6',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        margin: '2px'
+                                    },
+                                    searchBox: {
+                                        border: '1px solid #D1D5DB',
+                                        borderRadius: '8px',
+                                        padding: '8px 12px',
+                                        fontSize: '14px',
+                                        minHeight: '42px',
+                                        backgroundColor: 'white'
+                                    },
+                                    inputField: {
+                                        margin: '0px',
+                                        fontSize: '14px',
+                                        color: '#374151',
+                                        backgroundColor: 'transparent'
+                                    },
+                                    option: {
+                                        color: '#374151',
+                                        backgroundColor: 'white',
+                                        padding: '10px 12px',
+                                        fontSize: '14px',
+                                        borderBottom: '1px solid #F3F4F6',
+                                        cursor: 'pointer'
+                                    },
+                                    optionContainer: {
+                                        border: '1px solid #D1D5DB',
+                                        borderRadius: '8px',
+                                        maxHeight: '250px',
+                                        marginTop: '4px',
+                                        backgroundColor: 'white',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                        zIndex: 1000
+                                    },
+                                    multiselectContainer: {
+                                        color: '#374151'
+                                    },
+                                    highlightOption: {
+                                        backgroundColor: '#EBF8FF',
+                                        color: '#1E40AF'
+                                    }
+                                }}
+                                loading={isLoadingCountries}
+                                disable={isLoading || isLoadingCountries}
                             />
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            {localCountry && (
+                            {selectedCountries.length > 0 && (
                                 <button
                                     onClick={() => clearField('person_country')}
                                     disabled={isLoading}
-                                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 transition-colors ${isLoading
+                                    className={`absolute right-3 top-3 transition-colors z-10 ${isLoading
                                         ? 'text-gray-300 cursor-not-allowed'
                                         : 'text-gray-400 hover:text-gray-600'
                                         }`}
-                                    title={isLoading ? 'Loading...' : 'Clear country'}
+                                    title={isLoading ? 'Loading...' : 'Clear countries'}
                                 >
                                     <X size={16} />
                                 </button>
@@ -251,9 +402,9 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
                             onClick={() => {
                                 // Trigger immediate search with current values
                                 const newFilters = {
-                                    company_name: localCompanyName,
+                                    company_name: selectedCompanies.map(company => company.name),
                                     designation: localDesignation,
-                                    person_country: localCountry
+                                    person_country: selectedCountries.map(country => country.id)
                                 };
                                 setFilters(newFilters);
                                 onFilter(newFilters);

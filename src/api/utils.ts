@@ -37,17 +37,24 @@ export const getContactUrl = (action: keyof typeof ENDPOINTS.CONTACTS, id?: stri
 };
 
 /**
+ * Get the full URL for a combo/dropdown endpoint
+ */
+export const getComboUrl = (action: keyof typeof ENDPOINTS.COMBO): string => {
+  return getEndpointUrl(ENDPOINTS.COMBO[action]);
+};
+
+/**
  * Build query string from parameters object
  */
 export const buildQueryString = (params: Record<string, any>): string => {
   const searchParams = new URLSearchParams();
-  
+
   Object.entries(params).forEach(([key, value]) => {
     if (value !== null && value !== undefined && value !== '') {
       searchParams.append(key, String(value));
     }
   });
-  
+
   const queryString = searchParams.toString();
   return queryString ? `?${queryString}` : '';
 };
@@ -59,7 +66,7 @@ export const buildUrlWithParams = (baseUrl: string, params?: Record<string, any>
   if (!params || Object.keys(params).length === 0) {
     return baseUrl;
   }
-  
+
   const queryString = buildQueryString(params);
   return `${baseUrl}${queryString}`;
 };
@@ -110,7 +117,7 @@ export const handleApiResponse = <T>(response: any): T => {
   if (isApiError(response)) {
     throw new Error(response.message);
   }
-  
+
   // If response has a data property, return it; otherwise return the response itself
   return response.data ?? response;
 };
@@ -120,7 +127,7 @@ export const handleApiResponse = <T>(response: any): T => {
  */
 export const createFormData = (data: Record<string, any>): FormData => {
   const formData = new FormData();
-  
+
   Object.entries(data).forEach(([key, value]) => {
     if (value !== null && value !== undefined) {
       if (value instanceof File) {
@@ -134,7 +141,7 @@ export const createFormData = (data: Record<string, any>): FormData => {
       }
     }
   });
-  
+
   return formData;
 };
 
