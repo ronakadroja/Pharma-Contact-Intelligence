@@ -75,6 +75,10 @@ export interface UpdateUserPayload {
     country?: string;
     role?: string;
     credits?: string;
+    status?: string;
+    password?: string;
+    subscription_start_date?: string;
+    subscription_end_date?: string;
 }
 
 export const updateUser = async (userId: string, userData: UpdateUserPayload): Promise<User> => {

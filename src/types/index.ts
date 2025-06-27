@@ -11,6 +11,8 @@ export interface User {
     company: string;
     country: string;
     status: UserStatus;
+    subscription_start_date?: string;
+    subscription_end_date?: string;
     createdAt: string;
 }
 

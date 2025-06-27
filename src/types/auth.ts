@@ -24,6 +24,8 @@ export interface User {
     role: string;
     credits: number;
     status: string;
+    subscription_start_date?: string;
+    subscription_end_date?: string;
     createdAt?: string;
 }
 
@@ -37,6 +39,8 @@ export interface CreateUserPayload {
     role: string;
     credits: string;
     status: string;
+    subscription_start_date?: string;
+    subscription_end_date?: string;
 }
 
 export interface CreateUserResponse {
@@ -56,4 +60,6 @@ export interface UpdateUserPayload {
     role?: string;
     credits?: string;
     status?: string;
-} 
+    subscription_start_date?: string;
+    subscription_end_date?: string;
+}
