@@ -25,6 +25,7 @@ interface TableProps<T> {
     selectedRows?: RowSelectionState;
     onSelectionChange?: OnChangeFn<RowSelectionState>;
     emptyStateMessage?: string;
+    enablePagination?: boolean; // New prop to control pagination
 }
 
 function Table<T>({
@@ -37,7 +38,8 @@ function Table<T>({
     enableSelection = false,
     selectedRows = {},
     onSelectionChange,
-    emptyStateMessage = 'No data available'
+    emptyStateMessage = 'No data available',
+    enablePagination = true // Default to true for backward compatibility
 }: TableProps<T>) {
     const memoizedColumns = useMemo(() => columns, [columns]);
     const memoizedData = useMemo(() => data, [data]);
@@ -55,7 +57,7 @@ function Table<T>({
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
+        ...(enablePagination && { getPaginationRowModel: getPaginationRowModel() }),
     });
 
     if (isLoading) {

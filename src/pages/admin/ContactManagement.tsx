@@ -1,5 +1,5 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Download, Pencil, Plus, Trash2, Upload, Filter } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, Upload, Filter, Loader2 } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import {
     deleteContact,
@@ -7,13 +7,13 @@ import {
     revealContact,
     updateContactStatus,
     bulkImportContacts,
-    type Contact,
-    type ContactsResponse
+    type Contact
 } from '../../api/contacts';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import ContactForm from '../../components/ContactForm';
-import Pagination from "../../components/Pagination";
 import Table from "../../components/Table";
+import ScrollToTopButton from "../../components/ui/ScrollToTopButton";
+import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 import { useToast } from '../../context/ToastContext';
 import { Button, Card, Input, Badge } from '../../components/ui/design-system';
 
@@ -30,9 +30,12 @@ interface ContactFormData {
 
 
 const ContactManagement = () => {
-    const [contactsData, setContactsData] = useState<ContactsResponse | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Infinite scroll state management
+    const [allContacts, setAllContacts] = useState<Contact[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
+    const [hasMoreData, setHasMoreData] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [totalItems, setTotalItems] = useState(0);
     const [searchParams, setSearchParams] = useState({
         company_name: '',
         designation: '',
@@ -62,6 +65,25 @@ const ContactManagement = () => {
     const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
     const [bulkStatusToSet, setBulkStatusToSet] = useState<'Active' | 'Inactive' | null>(null);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+    // Infinite scroll hook
+    const loadMoreContacts = async () => {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        await fetchContacts(nextPage, false, true);
+    };
+
+    const { isLoadingMore, containerRef } = useInfiniteScroll(
+        loadMoreContacts,
+        {
+            threshold: 500, // Increased threshold to trigger earlier
+            enabled: !loading && hasMoreData,
+            isLoading: loading,
+            hasMore: hasMoreData
+        }
+    );
+
+
 
     const columns: ColumnDef<Contact>[] = [
         {
@@ -136,9 +158,12 @@ const ContactManagement = () => {
         },
     ];
 
-    const fetchContacts = async (page: number = 1, resetFilters: boolean = false) => {
+    const fetchContacts = async (page: number = 1, resetFilters: boolean = false, isLoadMore: boolean = false) => {
         try {
-            setLoading(true);
+            // Only show main loading for initial load or filter changes
+            if (!isLoadMore) {
+                setLoading(true);
+            }
             setError(null);
 
             const searchParamsToSend = Object.fromEntries(
@@ -150,7 +175,21 @@ const ContactManagement = () => {
                 page,
                 per_page: 10
             });
-            setContactsData(response);
+
+            // Handle cumulative data for infinite scroll
+            if (isLoadMore) {
+                // Append new data to existing data
+                setAllContacts(prevContacts => [...prevContacts, ...response.data]);
+            } else {
+                // Replace data for initial load or filter changes
+                setAllContacts(response.data);
+                setCurrentPage(1);
+            }
+
+            // Update pagination state
+            setTotalItems(response.total);
+            setHasMoreData(response.current_page < response.last_page);
+
         } catch (error) {
             console.error('Error fetching contacts:', error);
             let errorMessage = 'Failed to fetch contacts';
@@ -167,15 +206,36 @@ const ContactManagement = () => {
                 duration: 6000 // Auto-close after 6 seconds
             });
             setError(errorMessage);
-            setContactsData(null);
+            if (!isLoadMore) {
+                setAllContacts([]);
+                setTotalItems(0);
+                setHasMoreData(false);
+            }
         } finally {
-            setLoading(false);
+            if (!isLoadMore) {
+                setLoading(false);
+            }
         }
     };
 
+    // Initial fetch on mount
     useEffect(() => {
-        fetchContacts(currentPage);
-    }, [currentPage]);
+        fetchContacts(1, false, false);
+    }, []);
+
+    // Fetch when search params change (reset infinite scroll)
+    useEffect(() => {
+        const hasActiveFilters = Object.values(searchParams).some(value => value !== '');
+        const isClearing = Object.values(searchParams).every(value => value === '');
+
+        if (hasActiveFilters || isClearing) {
+            // Reset infinite scroll state
+            setCurrentPage(1);
+            setAllContacts([]);
+            setHasMoreData(true);
+            fetchContacts(1, false, false);
+        }
+    }, [searchParams]);
 
 
     const handleAddContact = () => {
@@ -221,7 +281,11 @@ const ContactManagement = () => {
             success('Contact deleted successfully!', {
                 title: 'Deleted'
             });
-            fetchContacts(currentPage);
+            // Reset infinite scroll and reload data
+            setCurrentPage(1);
+            setAllContacts([]);
+            setHasMoreData(true);
+            fetchContacts(1, false, false);
         } catch (error) {
             showError(error instanceof Error ? error.message : 'Failed to delete contact', {
                 title: 'Delete Failed',
@@ -293,7 +357,10 @@ const ContactManagement = () => {
                     }
 
                     // Refresh the contacts list after import
-                    fetchContacts(currentPage);
+                    setCurrentPage(1);
+                    setAllContacts([]);
+                    setHasMoreData(true);
+                    fetchContacts(1, false, false);
                 }
             } catch (error: any) {
                 showError(
@@ -326,7 +393,11 @@ const ContactManagement = () => {
     const handleFormSuccess = () => {
         setShowModal(false);
         setSelectedContact(null);
-        fetchContacts(currentPage);
+        // Reset infinite scroll and reload data
+        setCurrentPage(1);
+        setAllContacts([]);
+        setHasMoreData(true);
+        fetchContacts(1, false, false);
     };
 
     const handleBulkDeleteClick = () => {
@@ -343,7 +414,11 @@ const ContactManagement = () => {
                 title: 'Bulk Delete Complete'
             });
             setSelectedRows({});
-            fetchContacts(currentPage);
+            // Reset infinite scroll and reload data
+            setCurrentPage(1);
+            setAllContacts([]);
+            setHasMoreData(true);
+            fetchContacts(1, false, false);
         } catch (error) {
             showError(error instanceof Error ? error.message : 'Failed to delete contacts', {
                 title: 'Bulk Delete Failed',
@@ -370,7 +445,11 @@ const ContactManagement = () => {
                 title: 'Status Updated'
             });
             setSelectedRows({});
-            fetchContacts(currentPage);
+            // Reset infinite scroll and reload data
+            setCurrentPage(1);
+            setAllContacts([]);
+            setHasMoreData(true);
+            fetchContacts(1, false, false);
         } catch (error) {
             showError(error instanceof Error ? error.message : 'Failed to update contact status', {
                 title: 'Status Update Failed',
@@ -388,7 +467,11 @@ const ContactManagement = () => {
             success('Contact information revealed successfully!', {
                 title: 'Contact Revealed'
             });
-            fetchContacts(currentPage); // Refresh the contacts list
+            // Reset infinite scroll and reload data
+            setCurrentPage(1);
+            setAllContacts([]);
+            setHasMoreData(true);
+            fetchContacts(1, false, false);
         } catch (error) {
             console.error('Error revealing contact:', error);
             showError('Failed to reveal contact information', {
@@ -399,7 +482,7 @@ const ContactManagement = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" ref={containerRef}>
             {/* Header Section */}
             <Card variant="elevated" padding="lg">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -541,7 +624,10 @@ const ContactManagement = () => {
                                         person_country: '',
                                         city: ''
                                     });
-                                    fetchContacts(1, true);
+                                    setCurrentPage(1);
+                                    setAllContacts([]);
+                                    setHasMoreData(true);
+                                    fetchContacts(1, true, false);
                                     success('All filters have been cleared!', {
                                         title: 'Filters Cleared'
                                     });
@@ -552,7 +638,9 @@ const ContactManagement = () => {
                             <Button
                                 onClick={() => {
                                     setCurrentPage(1);
-                                    fetchContacts(1);
+                                    setAllContacts([]);
+                                    setHasMoreData(true);
+                                    fetchContacts(1, false, false);
                                 }}
                             >
                                 Apply Filters
@@ -634,7 +722,7 @@ const ContactManagement = () => {
                         <div className="overflow-hidden">
                             <div className="min-w-full divide-y divide-gray-200">
                                 <Table
-                                    data={contactsData?.data || []}
+                                    data={allContacts}
                                     columns={columns}
                                     isLoading={loading}
                                     sorting={sorting}
@@ -642,6 +730,7 @@ const ContactManagement = () => {
                                     enableSelection={true}
                                     selectedRows={selectedRows}
                                     onSelectionChange={setSelectedRows}
+                                    enablePagination={false}
                                     emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
                                 />
                             </div>
@@ -649,25 +738,33 @@ const ContactManagement = () => {
                     </div>
                 </div>
 
-                {/* Responsive Pagination */}
-                {contactsData && contactsData.last_page > 1 && (
-                    <div className="border-t border-gray-200">
-                        <div className="px-4 py-3 sm:px-6">
-                            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-                                <div className="text-sm text-gray-700 text-center sm:text-left">
-                                    Showing page {currentPage} of {contactsData.last_page}
-                                </div>
-                                <div className="w-full sm:w-auto flex justify-center">
-                                    <Pagination
-                                        currentPage={currentPage}
-                                        totalPages={contactsData.last_page}
-                                        onPageChange={setCurrentPage}
-                                        totalItems={contactsData.total}
-                                        pageSize={10}
-                                        showTotalItems={true}
-                                    />
-                                </div>
+                {/* Infinite scroll loading indicator */}
+                {isLoadingMore && (
+                    <div className="border-t border-gray-200 px-6 py-6">
+                        <div className="flex items-center justify-center">
+                            <div className="flex items-center gap-3 text-gray-600">
+                                <Loader2 size={20} className="animate-spin" />
+                                <span className="text-sm font-medium">Loading more contacts...</span>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Status information */}
+                {!loading && allContacts.length > 0 && (
+                    <div className="border-t border-gray-200 px-6 py-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="text-sm text-gray-700">
+                                Showing {allContacts.length} of {totalItems} contacts
+                                {!hasMoreData && allContacts.length > 10 && (
+                                    <span className="ml-2 text-gray-500">(All contacts loaded)</span>
+                                )}
+                            </div>
+                            {hasMoreData && (
+                                <div className="text-sm text-gray-500">
+                                    Scroll down to load more contacts
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -733,6 +830,9 @@ const ContactManagement = () => {
                     </div>
                 </div>
             )}
+
+            {/* Scroll to top button */}
+            <ScrollToTopButton threshold={300} />
         </div>
     );
 };

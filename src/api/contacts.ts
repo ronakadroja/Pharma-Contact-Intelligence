@@ -1,5 +1,5 @@
 import api from './config';
-import { getContactUrl, buildUrlWithParams } from './utils';
+import { getContactUrl } from './utils';
 
 export interface Contact {
     id: string;
@@ -14,10 +14,11 @@ export interface Contact {
     person_country: string;
     company_country: string;
     reference: string;
-    person_linked_url: string;
-    company_linked_url: string;
+    person_linkedin_url: string;
+    company_linkedin_url: string;
     company_website: string;
     status: string;
+    is_verified: number; // 1 for verified, 0 for not verified
 }
 
 export interface ContactsResponse {
@@ -71,15 +72,16 @@ export interface ContactPayload {
     designation: string;
     company_type: string;
     email: string;
-    phone: string;
-    city: string;
+    phone?: string;
+    city?: string;
     person_country: string;
     company_country: string;
-    reference: string;
-    person_linked_url: string;
+    reference?: string;
+    person_linkedin_url?: string;
     company_linkedin_url: string;
     company_website: string;
     status: string;
+    is_verified?: number;
 }
 
 export const addContact = async (contactData: ContactPayload): Promise<Contact> => {
@@ -153,6 +155,7 @@ export interface SavedContactsResponse {
         company_linkedin_url: string | null;
         company_website: string | null;
         status: 'Active' | 'Inactive';
+        is_verified: number; // 1 for verified, 0 for not verified
     }>;
 }
 
