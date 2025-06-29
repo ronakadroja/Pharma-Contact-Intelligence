@@ -132,18 +132,88 @@ const MyListPage = () => {
         setSelectedContactIds(new Set());
     }, []);
 
-    // Data fetching with validation
-    const fetchSavedContacts = useCallback(async () => {
+    // Data fetching with validation - runs only once on mount
+    useEffect(() => {
+        const fetchSavedContacts = async () => {
+            try {
+                setIsLoading(true);
+                const response = await getSavedContacts();
+
+                if (response) {
+                    // Validate credit information
+                    const newValidationErrors: FormErrors = {};
+                    const creditValidation = validateCredits(response.available_credit);
+                    if (!creditValidation.isValid) {
+                        newValidationErrors.credits = creditValidation.error || '';
+                        showError('Invalid credit information received from server', {
+                            title: 'Data Validation Error',
+                            duration: 6000
+                        });
+                    }
+
+                    setAvailableCredit(response.available_credit);
+
+                    // Format and validate contact data
+                    const formattedContacts = response.my_list.map((contact, index) => {
+                        const formattedContact = {
+                            ...contact,
+                            id: index.toString(),
+                            is_verified: contact.is_verified || 0
+                        };
+
+                        // Validate each contact's data integrity
+                        const contactValidation = validateContactData(formattedContact);
+                        if (!contactValidation.isValid) {
+                            console.warn(`Contact validation failed for ${contact.person_name}:`, contactValidation.error);
+                            newValidationErrors[`contact_${index}`] = contactValidation.error || '';
+                        }
+
+                        return formattedContact;
+                    });
+
+                    setSavedContacts(formattedContacts);
+                    setValidationErrors(newValidationErrors);
+
+                    // Show validation summary if there are errors
+                    const errorCount = Object.keys(newValidationErrors).length;
+                    if (errorCount > 0) {
+                        showError(`${errorCount} contact(s) have data validation issues. Please review the contact information.`, {
+                            title: 'Data Validation Warning',
+                            duration: 8000
+                        });
+                    }
+                } else {
+                    showError('Failed to load saved contacts', {
+                        title: 'Error',
+                        duration: 6000
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching saved contacts:', error);
+                showError('Failed to load saved contacts', {
+                    title: 'Error',
+                    duration: 6000
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchSavedContacts();
+    }, [showError]); // Only depends on showError which is stable
+
+    // Manual refresh function for when needed
+    const refreshContacts = useCallback(async () => {
         try {
             setIsLoading(true);
-            setValidationErrors({});
             const response = await getSavedContacts();
 
             if (response) {
                 // Validate credit information
+                const newValidationErrors: FormErrors = {};
                 const creditValidation = validateCredits(response.available_credit);
                 if (!creditValidation.isValid) {
-                    setValidationErrors(prev => ({ ...prev, credits: creditValidation.error || '' }));
+                    newValidationErrors.credits = creditValidation.error || '';
                     showError('Invalid credit information received from server', {
                         title: 'Data Validation Error',
                         duration: 6000
@@ -164,45 +234,35 @@ const MyListPage = () => {
                     const contactValidation = validateContactData(formattedContact);
                     if (!contactValidation.isValid) {
                         console.warn(`Contact validation failed for ${contact.person_name}:`, contactValidation.error);
-                        setValidationErrors(prev => ({
-                            ...prev,
-                            [`contact_${index}`]: contactValidation.error || ''
-                        }));
+                        newValidationErrors[`contact_${index}`] = contactValidation.error || '';
                     }
 
                     return formattedContact;
                 });
 
                 setSavedContacts(formattedContacts);
+                setValidationErrors(newValidationErrors);
 
-                // Show validation summary if there are errors
-                const errorCount = Object.keys(validationErrors).length;
-                if (errorCount > 0) {
-                    showError(`${errorCount} contact(s) have data validation issues. Please review the contact information.`, {
-                        title: 'Data Validation Warning',
-                        duration: 8000
-                    });
-                }
+                success('Contacts refreshed successfully!', {
+                    title: 'Success',
+                    duration: 3000
+                });
             } else {
-                showError('Failed to load saved contacts', {
+                showError('Failed to refresh contacts', {
                     title: 'Error',
                     duration: 6000
                 });
             }
         } catch (error) {
-            console.error('Error fetching saved contacts:', error);
-            showError('Failed to load saved contacts', {
+            console.error('Error refreshing contacts:', error);
+            showError('Failed to refresh contacts', {
                 title: 'Error',
                 duration: 6000
             });
         } finally {
             setIsLoading(false);
         }
-    }, [showError, validationErrors]);
-
-    useEffect(() => {
-        fetchSavedContacts();
-    }, [fetchSavedContacts]);
+    }, [showError, success]);
 
     // Contact actions with validation
     const handleRemove = useCallback((contact: SavedContact) => {
