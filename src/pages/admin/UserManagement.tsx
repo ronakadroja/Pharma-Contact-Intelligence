@@ -269,7 +269,7 @@ const UserManagement = () => {
 
             {/* Search and Filter Section */}
             <Card variant="elevated" padding="none">
-                <div className="p-6 border-b border-neutral-200">
+                {/* <div className="p-6 border-b border-neutral-200">
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="flex-1">
                             <Input
@@ -298,7 +298,7 @@ const UserManagement = () => {
                             </Button>
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Filter Panel */}
                 {showFilters && (

@@ -737,8 +737,8 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                     onBlur={handleBlur}
                                     required
                                     className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.status && errors.status
-                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                            : 'border-gray-300'
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300'
                                         }`}
                                 >
                                     <option value="Active">Active</option>
