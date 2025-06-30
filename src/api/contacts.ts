@@ -43,8 +43,12 @@ export interface ContactsResponse {
 
 export interface ContactSearchParams {
     company_name?: string;
+    person_name?: string;
+    department?: string;
     designation?: string;
+    company_type?: string;
     person_country?: string;
+    company_country?: string;
     city?: string;
     page?: number;
     per_page?: number;

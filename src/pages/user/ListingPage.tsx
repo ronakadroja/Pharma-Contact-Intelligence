@@ -12,8 +12,13 @@ import { useToast } from "../../context/ToastContext";
 
 interface FilterState {
     company_name: string[];
+    person_name: string;
+    department: string;
     designation: string;
+    company_type: string;
     person_country: string[];
+    company_country: string[];
+    city: string;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -28,8 +33,13 @@ const ListingPage = () => {
     const [showFilters, setShowFilters] = useState(true); // true = visible by default
     const [searchParams, setSearchParams] = useState({
         company_name: [] as string[],
+        person_name: '',
+        department: '',
         designation: '',
+        company_type: '',
         person_country: [] as string[],
+        company_country: [] as string[],
+        city: '',
     });
     const [sorting, setSorting] = useState<SortingState>([]);
     const { showToast } = useToast();
