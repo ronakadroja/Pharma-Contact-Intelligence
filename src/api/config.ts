@@ -29,9 +29,15 @@ api.interceptors.response.use(
     (error) => {
         console.error('Response error:', error);
         if (error.response?.status === 401) {
-            // Handle unauthorized access
-            localStorage.removeItem(CURRENT_API_CONFIG.AUTH.TOKEN_KEY);
-            window.location.href = '/login';
+            // Only redirect to login if this is not a login request
+            // Check if the request URL is the login endpoint
+            const isLoginRequest = error.config?.url?.endsWith('/api/login');
+
+            if (!isLoginRequest) {
+                // Handle unauthorized access for authenticated requests
+                localStorage.removeItem(CURRENT_API_CONFIG.AUTH.TOKEN_KEY);
+                window.location.href = '/login';
+            }
         }
         console.log(error.response?.data);
         return Promise.reject(error.response?.data);

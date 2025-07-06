@@ -209,16 +209,25 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
                         )}
                     </div>
                     <div className="flex items-center gap-2">
-                        <button
-                            className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors"
+                        <div
+                            className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors cursor-pointer"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleReset();
                             }}
                             title="Reset filters"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleReset();
+                                }
+                            }}
                         >
                             <X size={18} />
-                        </button>
+                        </div>
                         <span className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors">
                             {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </span>

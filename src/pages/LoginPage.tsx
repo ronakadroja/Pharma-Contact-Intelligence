@@ -12,7 +12,7 @@ const LoginPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
     const { login } = useAppContext();
-    const { success, error: showError } = useToast();
+    const { success, error } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,33 +36,11 @@ const LoginPage = () => {
             } else {
                 error('Invalid email or password. Please check your credentials and try again.', {
                     title: 'Login Failed',
-                    persistent: true,
-                    actions: [
-                        {
-                            label: 'Try Again',
-                            onClick: () => {
-                                setUsername('');
-                                setPassword('');
-                            },
-                            variant: 'primary'
-                        }
-                    ]
                 });
             }
         } catch (err) {
             error(err instanceof Error ? err.message : 'An error occurred during login', {
                 title: 'Login Error',
-                persistent: true,
-                actions: [
-                    {
-                        label: 'Retry',
-                        onClick: () => {
-                            setUsername('');
-                            setPassword('');
-                        },
-                        variant: 'primary'
-                    }
-                ]
             });
         } finally {
             setIsLoading(false);

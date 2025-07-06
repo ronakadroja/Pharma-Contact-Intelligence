@@ -348,9 +348,11 @@ const ListingPage = () => {
                     >
                         <Filter size={16} />
                         <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
-                        <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {Object.values(searchParams).filter(Boolean).length}
-                        </span>
+                        {Object.values(searchParams).filter(Boolean).length > 0 && (
+                            <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {Object.values(searchParams).filter(Boolean).length}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -373,9 +375,9 @@ const ListingPage = () => {
 
             <div className="max-w-[90rem] mx-auto px-4 py-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Sidebar with filters - Visible based on showFilters state */}
+                    {/* Sidebar with filters - Only visible on desktop when showFilters is true */}
                     {showFilters && (
-                        <div className={`${showFilters ? 'w-full lg:w-72' : '0'} flex-shrink-0 transition-all duration-300`}>
+                        <div className={`hidden lg:block ${showFilters ? 'w-full lg:w-72' : '0'} flex-shrink-0 transition-all duration-300`}>
                             <div className="sticky top-4 space-y-6">
                                 <FilterPanel onFilter={handleFilter} isMobile={false} isLoading={isLoading} />
 
