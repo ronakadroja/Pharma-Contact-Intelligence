@@ -1,6 +1,7 @@
-import { Building, Globe, Mail, Phone, User as UserIcon, X } from 'lucide-react';
+import { Mail, Phone, User as UserIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createUser, updateUser } from '../api/auth';
+import { fetchCountries, fetchCompanies, type CompanyOption } from '../api/combo';
 import { useToast } from '../context/ToastContext';
 import type { CreateUserPayload, UpdateUserPayload, User } from '../types/auth';
 import { encodePassword } from '../utils/auth';
@@ -17,6 +18,8 @@ import {
     type FormErrors
 } from '../utils/validation';
 import { Button, Input } from './ui/design-system';
+import SearchableDropdown from './ui/SearchableDropdown';
+import CustomizableDropdown from './ui/CustomizableDropdown';
 
 
 interface UserCreationFormProps {
@@ -25,7 +28,6 @@ interface UserCreationFormProps {
     onCancel?: () => void;
 }
 
-const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'Spain', 'Italy', 'Japan'];
 const ROLES = ['User', 'Admin'];
 const STATUS_OPTIONS = ['Active', 'Inactive'];
 
@@ -49,6 +51,42 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
     const [formData, setFormData] = useState<CreateUserPayload>(DEFAULT_FORM_STATE);
     const [errors, setErrors] = useState<FormErrors>({});
     const [touched, setTouched] = useState<Record<string, boolean>>({});
+    const [countries, setCountries] = useState<CompanyOption[]>([]);
+    const [isLoadingCountries, setIsLoadingCountries] = useState(false);
+    const [companies, setCompanies] = useState<CompanyOption[]>([]);
+    const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
+
+    // Load countries and companies on component mount
+    useEffect(() => {
+        const loadCountries = async () => {
+            setIsLoadingCountries(true);
+            try {
+                const countryData = await fetchCountries();
+                setCountries(countryData);
+            } catch (error) {
+                console.error('Failed to load countries:', error);
+                setCountries([]);
+            } finally {
+                setIsLoadingCountries(false);
+            }
+        };
+
+        const loadCompanies = async () => {
+            setIsLoadingCompanies(true);
+            try {
+                const companyData = await fetchCompanies();
+                setCompanies(companyData);
+            } catch (error) {
+                console.error('Failed to load companies:', error);
+                setCompanies([]);
+            } finally {
+                setIsLoadingCompanies(false);
+            }
+        };
+
+        loadCountries();
+        loadCompanies();
+    }, []);
 
     // Reset form when user prop changes
     useEffect(() => {
@@ -175,6 +213,54 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                 }
             }
         }
+    };
+
+    // Handle country dropdown change
+    const handleCountryChange = (countryId: string) => {
+        // Find the country name from the ID
+        const selectedCountry = countries.find(country => country.id === countryId);
+        const countryName = selectedCountry ? selectedCountry.name : '';
+
+        // Update form data with country name
+        setFormData(prev => ({
+            ...prev,
+            country: countryName
+        }));
+
+        // Mark field as touched
+        setTouched(prev => ({
+            ...prev,
+            country: true
+        }));
+
+        // Validate field
+        const error = validateField('country', countryName);
+        setErrors(prev => ({
+            ...prev,
+            country: error
+        }));
+    };
+
+    // Handle company dropdown change (now supports custom input)
+    const handleCompanyChange = (companyName: string) => {
+        // Update form data with company name (can be from dropdown or custom input)
+        setFormData(prev => ({
+            ...prev,
+            company: companyName
+        }));
+
+        // Mark field as touched
+        setTouched(prev => ({
+            ...prev,
+            company: true
+        }));
+
+        // Validate field
+        const error = validateField('company', companyName);
+        setErrors(prev => ({
+            ...prev,
+            company: error
+        }));
     };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -390,56 +476,50 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                 <div>
                     <h3 className="text-sm font-medium text-neutral-900 mb-4">Company Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <Input
-                            type="text"
-                            id="company"
-                            name="company"
-                            label="Company Name"
-                            value={formData.company}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required
-                            placeholder="Enter company name"
-                            leftIcon={<Building size={18} />}
-                            error={touched.company ? errors.company : undefined}
-                        />
-
+                        <div>
+                            <CustomizableDropdown
+                                label="Company Name"
+                                id="company"
+                                options={companies}
+                                value={formData.company}
+                                onChange={handleCompanyChange}
+                                placeholder="Select a company  name"
+                                emptyMessage="No companies found. Type a custom company name and click outside to use it."
+                                disabled={isLoading}
+                                loading={isLoadingCompanies}
+                                allowCustomInput={true}
+                            />
+                            {touched.company && errors.company && (
+                                <p className="text-sm text-error-600 flex items-center gap-1 mt-1">
+                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    {errors.company}
+                                </p>
+                            )}
+                        </div>
                         <div className="space-y-2">
-                            <label htmlFor="country" className="block text-sm font-medium text-neutral-700">
-                                Country <span className="text-error-500 ml-1">*</span>
-                            </label>
-                            <div className="relative">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
-                                    <Globe size={18} />
-                                </div>
-                                <select
-                                    id="country"
-                                    name="country"
-                                    value={formData.country}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                    required
-                                    className={`w-full text-sm pl-10 pr-4 py-3 border rounded-xl bg-white hover:border-neutral-400 focus:ring-2 focus:outline-none transition-all duration-200 ${touched.country && errors.country
-                                        ? 'border-error-500 focus:border-error-500 focus:ring-error-500'
-                                        : 'border-neutral-300 focus:border-primary-500 focus:ring-primary-500'
-                                        }`}
-                                >
-                                    <option value="">Select a country</option>
-                                    {COUNTRIES.map(country => (
-                                        <option key={country} value={country}>{country}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            <SearchableDropdown
+                                label="Country"
+                                id="country"
+                                options={countries}
+                                value={countries.find(country => country.name === formData.country)?.id || ''}
+                                onChange={handleCountryChange}
+                                placeholder="Select a country"
+                                emptyMessage="No countries found. Try a different search term."
+                                disabled={isLoading}
+                                loading={isLoadingCountries}
+                            />
+
                             {touched.country && errors.country && (
-                                <p className="text-sm text-error-600 flex items-center gap-1">
+                                <p className="text-sm text-error-600 flex items-center gap-1 mt-1">
                                     <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                     </svg>
                                     {errors.country}
                                 </p>
                             )}
-                        </div>
-                    </div>
+                        </div>                    </div>
                 </div>
 
                 {/* Account Settings */}

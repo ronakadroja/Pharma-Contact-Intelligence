@@ -65,7 +65,9 @@ export const API_CONFIG = {
     // Combo/dropdown data endpoints
     COMBO: {
       COMPANY: '/api/combo/contacts', // For company names
-      COUNTRY: '/api/combo/country'   // For countries
+      COUNTRY: '/api/combo/country',   // For countries
+      DEPARTMENT: '/api/combo/department', // For departments
+      COMPANY_TYPE: '/api/combo/company-type' // For company types
     }
   }
 };
