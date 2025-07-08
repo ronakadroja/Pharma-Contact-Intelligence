@@ -1,21 +1,20 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Download, Pencil, Plus, Trash2, Upload, Filter, Loader2 } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
+import { Download, Filter, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import {
+    bulkImportContacts,
     deleteContact,
     getContacts,
-    revealContact,
     updateContactStatus,
-    bulkImportContacts,
     type Contact
 } from '../../api/contacts';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import ContactForm from '../../components/ContactForm';
 import Table from "../../components/Table";
+import { Badge, Button, Card, Input } from '../../components/ui/design-system';
 import ScrollToTopButton from "../../components/ui/ScrollToTopButton";
-import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 import { useToast } from '../../context/ToastContext';
-import { Button, Card, Input, Badge } from '../../components/ui/design-system';
+import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 
 interface ContactFormData {
     companyName: string;
@@ -461,25 +460,25 @@ const ContactManagement = () => {
         }
     };
 
-    const handleRevealContact = async (contact: Contact) => {
-        try {
-            await revealContact(contact.id);
-            success('Contact information revealed successfully!', {
-                title: 'Contact Revealed'
-            });
-            // Reset infinite scroll and reload data
-            setCurrentPage(1);
-            setAllContacts([]);
-            setHasMoreData(true);
-            fetchContacts(1, false, false);
-        } catch (error) {
-            console.error('Error revealing contact:', error);
-            showError('Failed to reveal contact information', {
-                title: 'Reveal Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
-        }
-    };
+    // const handleRevealContact = async (contact: Contact) => {
+    //     try {
+    //         await revealContact(contact.id);
+    //         success('Contact information revealed successfully!', {
+    //             title: 'Contact Revealed'
+    //         });
+    //         // Reset infinite scroll and reload data
+    //         setCurrentPage(1);
+    //         setAllContacts([]);
+    //         setHasMoreData(true);
+    //         fetchContacts(1, false, false);
+    //     } catch (error) {
+    //         console.error('Error revealing contact:', error);
+    //         showError('Failed to reveal contact information', {
+    //             title: 'Reveal Failed',
+    //             duration: 6000 // Auto-close after 6 seconds
+    //         });
+    //     }
+    // };
 
     return (
         <div className="space-y-6" ref={containerRef}>
@@ -493,13 +492,13 @@ const ContactManagement = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-                        <Button
+                        {/* <Button
                             variant="success"
                             onClick={handleExportContacts}
                             icon={<Download size={18} />}
                         >
                             <span className="hidden sm:inline">Export</span>
-                        </Button>
+                        </Button> */}
                         <div>
                             <input
                                 ref={fileInputRef}
@@ -529,7 +528,7 @@ const ContactManagement = () => {
 
             {/* Search and Filter Section */}
             <Card variant="elevated" padding="none">
-                <div className="p-6 border-b border-neutral-200">
+                {/* <div className="p-6 border-b border-neutral-200">
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="flex-1">
                             <Input
@@ -562,7 +561,7 @@ const ContactManagement = () => {
                             </Button>
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Filter Panel */}
                 {isFilterOpen && (

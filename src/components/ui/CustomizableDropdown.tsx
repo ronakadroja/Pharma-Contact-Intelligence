@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface DropdownOption {
   id: string;
@@ -182,8 +182,10 @@ const CustomizableDropdown: React.FC<CustomizableDropdownProps> = ({
 
       <div className="relative">
         <div
-          className={`w-full border border-neutral-300 rounded-xl px-4 py-2.5 pr-10 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 transition-all bg-white cursor-pointer ${disabled || loading ? 'bg-neutral-50 cursor-not-allowed' : ''
-            }`}
+          className={`w-full border rounded-md px-3 py-2 pr-10 focus-within:outline-none focus-within:ring-1 transition-all bg-white cursor-pointer shadow-sm ${className?.includes('border-red-300')
+            ? 'border-red-300 focus-within:ring-red-500 focus-within:border-red-500'
+            : 'border-gray-300 focus-within:ring-blue-500 focus-within:border-blue-500'
+            } ${disabled || loading ? 'bg-gray-50 cursor-not-allowed' : ''}`}
           onClick={toggleDropdown}
         >
           {isOpen ? (
@@ -199,10 +201,10 @@ const CustomizableDropdown: React.FC<CustomizableDropdownProps> = ({
               disabled={disabled || loading}
             />
           ) : (
-            <span className={`text-sm ${displayValue ? 'text-neutral-900' : 'text-neutral-400'}`}>
+            <span className={`text-sm ${displayValue ? 'text-gray-900' : 'text-gray-400'}`}>
               {loading ? 'Loading...' : displayValue || placeholder}
               {isCustomValue && allowCustomInput && (
-                <span className="text-xs text-neutral-500 ml-2">(custom)</span>
+                <span className="text-xs text-gray-500 ml-2">(custom)</span>
               )}
             </span>
           )}
@@ -227,7 +229,7 @@ const CustomizableDropdown: React.FC<CustomizableDropdownProps> = ({
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
             {loading ? (
               <div className="px-4 py-3 text-sm text-neutral-500">Loading...</div>
             ) : (
@@ -236,10 +238,10 @@ const CustomizableDropdown: React.FC<CustomizableDropdownProps> = ({
                   filteredOptions.map((option, index) => (
                     <div
                       key={option.id}
-                      className={`px-4 py-3 text-sm cursor-pointer transition-colors ${index === highlightedIndex
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-neutral-700 hover:bg-neutral-50'
-                        } ${value === option.name ? 'bg-primary-100 text-primary-800 font-medium' : ''}`}
+                      className={`px-3 py-2 text-sm cursor-pointer transition-colors ${index === highlightedIndex
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-50'
+                        } ${value === option.name ? 'bg-blue-100 text-blue-800 font-medium' : ''}`}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setIsSelectingOption(true);
@@ -251,11 +253,11 @@ const CustomizableDropdown: React.FC<CustomizableDropdownProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-3 text-sm text-neutral-500">
+                  <div className="px-3 py-2 text-sm text-gray-500">
                     {allowCustomInput && searchTerm ? (
                       <div>
-                        <div className="text-neutral-500 mb-2">{emptyMessage}</div>
-                        <div className="text-primary-600 font-medium">
+                        <div className="text-gray-500 mb-2">{emptyMessage}</div>
+                        <div className="text-blue-600 font-medium">
                           Click outside to use "{searchTerm}" as custom value
                         </div>
                       </div>

@@ -1,4 +1,4 @@
-import type { LoginResponse, LoginCredentials, CreateUserPayload, CreateUserResponse, User } from '../types/auth';
+import type { LoginResponse, LoginCredentials, CreateUserPayload, CreateUserResponse, User, UsersResponse, PaginatedResponse } from '../types/auth';
 import api from './config';
 import { getAuthUrl, getUserUrl } from './utils';
 
@@ -44,11 +44,16 @@ export const createUser = async (userData: CreateUserPayload): Promise<CreateUse
     }
 };
 
-export const getUsers = async (): Promise<User[]> => {
+export const getUsers = async (page: number = 1, perPage: number = 10): Promise<UsersResponse> => {
     try {
-        const response = await api.get<{ data: User[] }>(getUserUrl('BASE'));
-        // Ensure we're returning the array of users from the response
-        return Array.isArray(response.data.data) ? response.data.data : [];
+        const response = await api.get<UsersResponse>(getUserUrl('BASE'), {
+            params: {
+                page,
+                per_page: perPage
+            }
+        });
+        // Return the paginated response data
+        return response;
     } catch (error) {
         console.error('Error fetching users:', error);
         if (error && typeof error === 'object' && 'isAxiosError' in error) {
@@ -56,7 +61,22 @@ export const getUsers = async (): Promise<User[]> => {
             if (axiosError.response?.status === 401) {
                 // If unauthorized, redirect to login
                 window.location.href = '/login';
-                return [];
+                // Return empty pagination response
+                return {
+                    current_page: 1,
+                    data: [],
+                    first_page_url: '',
+                    from: 0,
+                    last_page: 1,
+                    last_page_url: '',
+                    links: [],
+                    next_page_url: null,
+                    path: '',
+                    per_page: perPage,
+                    prev_page_url: null,
+                    to: 0,
+                    total: 0
+                };
             }
         }
         throw new Error('Failed to fetch users. Please try again.');

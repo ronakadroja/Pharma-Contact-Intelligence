@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export interface DropdownOption {
   id: string;
@@ -72,7 +72,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
         if (!isOpen) {
           setIsOpen(true);
         } else {
-          setHighlightedIndex(prev => 
+          setHighlightedIndex(prev =>
             prev < filteredOptions.length - 1 ? prev + 1 : 0
           );
         }
@@ -80,7 +80,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
       case 'ArrowUp':
         e.preventDefault();
         if (isOpen) {
-          setHighlightedIndex(prev => 
+          setHighlightedIndex(prev =>
             prev > 0 ? prev - 1 : filteredOptions.length - 1
           );
         }
@@ -103,7 +103,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   };
 
   const handleSelect = (option: DropdownOption) => {
-    onChange(option.id);
+    onChange(option.name);
     setIsOpen(false);
     setSearchTerm('');
     setHighlightedIndex(-1);
@@ -131,12 +131,11 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
           {label}
         </label>
       )}
-      
+
       <div className="relative">
         <div
-          className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-10 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all bg-white cursor-pointer ${
-            disabled || loading ? 'bg-gray-50 cursor-not-allowed' : ''
-          }`}
+          className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-10 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all bg-white cursor-pointer ${disabled || loading ? 'bg-gray-50 cursor-not-allowed' : ''
+            }`}
           onClick={toggleDropdown}
         >
           {isOpen ? (
@@ -168,9 +167,9 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               <X size={14} />
             </button>
           )}
-          <ChevronDown 
-            className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
-            size={18} 
+          <ChevronDown
+            className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            size={18}
           />
         </div>
 
@@ -183,11 +182,10 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               filteredOptions.map((option, index) => (
                 <div
                   key={option.id}
-                  className={`px-4 py-3 text-sm cursor-pointer transition-colors ${
-                    index === highlightedIndex
+                  className={`px-4 py-3 text-sm cursor-pointer transition-colors ${index === highlightedIndex
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-50'
-                  } ${value === option.id ? 'bg-blue-100 text-blue-800 font-medium' : ''}`}
+                    } ${value === option.id ? 'bg-blue-100 text-blue-800 font-medium' : ''}`}
                   onClick={() => handleSelect(option)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >

@@ -132,10 +132,10 @@ export interface RevealContactResponse {
     available_credit: number;
 }
 
-export const revealContact = async (id: string): Promise<number> => {
+export const revealContact = async (id: string): Promise<RevealContactResponse> => {
     try {
         const response = await api.post<RevealContactResponse>(getContactUrl('REVEAL', id));
-        return response.data.available_credit;
+        return response.data;
     } catch (error) {
         console.error('Error revealing contact:', error);
         throw error;

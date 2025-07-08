@@ -1,16 +1,16 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Download, Mail, Phone, Trash2, CheckCircle, XCircle, X } from 'lucide-react';
+import { CheckCircle, Download, Mail, Phone, X, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSavedContacts } from '../api/contacts';
 import Header from '../components/Header';
-import { Button, Card, CardHeader, CardContent, Badge } from '../components/ui/design-system';
-import { exportContacts } from '../utils/csvExport';
+import { Badge, Button, Card, CardContent, CardHeader } from '../components/ui/design-system';
 import { useToast } from '../context/ToastContext';
+import { exportContacts } from '../utils/csvExport';
 import {
+    validateCredits,
     validateEmail,
     validateRequired,
-    validateCredits,
-    type ValidationResult,
-    type FormErrors
+    type FormErrors,
+    type ValidationResult
 } from '../utils/validation';
 
 interface SavedContact {
@@ -203,106 +203,106 @@ const MyListPage = () => {
     }, [showError]); // Only depends on showError which is stable
 
     // Manual refresh function for when needed
-    const refreshContacts = useCallback(async () => {
-        try {
-            setIsLoading(true);
-            const response = await getSavedContacts();
+    // const refreshContacts = useCallback(async () => {
+    //     try {
+    //         setIsLoading(true);
+    //         const response = await getSavedContacts();
 
-            if (response) {
-                // Validate credit information
-                const newValidationErrors: FormErrors = {};
-                const creditValidation = validateCredits(response.available_credit);
-                if (!creditValidation.isValid) {
-                    newValidationErrors.credits = creditValidation.error || '';
-                    showError('Invalid credit information received from server', {
-                        title: 'Data Validation Error',
-                        duration: 6000
-                    });
-                }
+    //         if (response) {
+    //             // Validate credit information
+    //             const newValidationErrors: FormErrors = {};
+    //             const creditValidation = validateCredits(response.available_credit);
+    //             if (!creditValidation.isValid) {
+    //                 newValidationErrors.credits = creditValidation.error || '';
+    //                 showError('Invalid credit information received from server', {
+    //                     title: 'Data Validation Error',
+    //                     duration: 6000
+    //                 });
+    //             }
 
-                setAvailableCredit(response.available_credit);
+    //             setAvailableCredit(response.available_credit);
 
-                // Format and validate contact data
-                const formattedContacts = response.my_list.map((contact, index) => {
-                    const formattedContact = {
-                        ...contact,
-                        id: index.toString(),
-                        is_verified: contact.is_verified || 0
-                    };
+    //             // Format and validate contact data
+    //             const formattedContacts = response.my_list.map((contact, index) => {
+    //                 const formattedContact = {
+    //                     ...contact,
+    //                     id: index.toString(),
+    //                     is_verified: contact.is_verified || 0
+    //                 };
 
-                    // Validate each contact's data integrity
-                    const contactValidation = validateContactData(formattedContact);
-                    if (!contactValidation.isValid) {
-                        console.warn(`Contact validation failed for ${contact.person_name}:`, contactValidation.error);
-                        newValidationErrors[`contact_${index}`] = contactValidation.error || '';
-                    }
+    //                 // Validate each contact's data integrity
+    //                 const contactValidation = validateContactData(formattedContact);
+    //                 if (!contactValidation.isValid) {
+    //                     console.warn(`Contact validation failed for ${contact.person_name}:`, contactValidation.error);
+    //                     newValidationErrors[`contact_${index}`] = contactValidation.error || '';
+    //                 }
 
-                    return formattedContact;
-                });
+    //                 return formattedContact;
+    //             });
 
-                setSavedContacts(formattedContacts);
-                setValidationErrors(newValidationErrors);
+    //             setSavedContacts(formattedContacts);
+    //             setValidationErrors(newValidationErrors);
 
-                success('Contacts refreshed successfully!', {
-                    title: 'Success',
-                    duration: 3000
-                });
-            } else {
-                showError('Failed to refresh contacts', {
-                    title: 'Error',
-                    duration: 6000
-                });
-            }
-        } catch (error) {
-            console.error('Error refreshing contacts:', error);
-            showError('Failed to refresh contacts', {
-                title: 'Error',
-                duration: 6000
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    }, [showError, success]);
+    //             success('Contacts refreshed successfully!', {
+    //                 title: 'Success',
+    //                 duration: 3000
+    //             });
+    //         } else {
+    //             showError('Failed to refresh contacts', {
+    //                 title: 'Error',
+    //                 duration: 6000
+    //             });
+    //         }
+    //     } catch (error) {
+    //         console.error('Error refreshing contacts:', error);
+    //         showError('Failed to refresh contacts', {
+    //             title: 'Error',
+    //             duration: 6000
+    //         });
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // }, [showError, success]);
 
     // Contact actions with validation
-    const handleRemove = useCallback((contact: SavedContact) => {
-        // Validate contact data before removal
-        if (!contact.id) {
-            showError('Cannot remove contact: Invalid contact ID', {
-                title: 'Removal Error',
-                duration: 5000
-            });
-            return;
-        }
+    // const handleRemove = useCallback((contact: SavedContact) => {
+    //     // Validate contact data before removal
+    //     if (!contact.id) {
+    //         showError('Cannot remove contact: Invalid contact ID', {
+    //             title: 'Removal Error',
+    //             duration: 5000
+    //         });
+    //         return;
+    //     }
 
-        if (!contact.person_name) {
-            showError('Cannot remove contact: Missing contact name', {
-                title: 'Removal Error',
-                duration: 5000
-            });
-            return;
-        }
+    //     if (!contact.person_name) {
+    //         showError('Cannot remove contact: Missing contact name', {
+    //             title: 'Removal Error',
+    //             duration: 5000
+    //         });
+    //         return;
+    //     }
 
-        // Check if contact exists in the list
-        const contactExists = savedContacts.some(c => c.id === contact.id);
-        if (!contactExists) {
-            showError('Contact no longer exists in your list', {
-                title: 'Removal Error',
-                duration: 5000
-            });
-            return;
-        }
+    //     // Check if contact exists in the list
+    //     const contactExists = savedContacts.some(c => c.id === contact.id);
+    //     if (!contactExists) {
+    //         showError('Contact no longer exists in your list', {
+    //             title: 'Removal Error',
+    //             duration: 5000
+    //         });
+    //         return;
+    //     }
 
-        setSavedContacts(prev => prev.filter(c => c.id !== contact.id));
-        setSelectedContactIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(contact.id || '');
-            return newSet;
-        });
-        success(`Removed ${contact.person_name} from your list`, {
-            title: 'Contact Removed'
-        });
-    }, [savedContacts, success, showError]);
+    //     setSavedContacts(prev => prev.filter(c => c.id !== contact.id));
+    //     setSelectedContactIds(prev => {
+    //         const newSet = new Set(prev);
+    //         newSet.delete(contact.id || '');
+    //         return newSet;
+    //     });
+    //     success(`Removed ${contact.person_name} from your list`, {
+    //         title: 'Contact Removed'
+    //     });
+    // }, [savedContacts, success, showError]);
 
     const handleExport = useCallback((exportType: 'selected' | 'all') => {
         // Validate export operation before starting
@@ -660,14 +660,14 @@ const MyListPage = () => {
                                                                     )}
                                                                 </div>
                                                             )}
-                                                            <button
+                                                            {/* <button
                                                                 onClick={() => handleRemove(contact)}
                                                                 className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                                                                 title="Remove contact"
                                                                 disabled={isExporting}
                                                             >
                                                                 <Trash2 size={16} />
-                                                            </button>
+                                                            </button> */}
                                                         </div>
                                                     </td>
                                                 </tr>

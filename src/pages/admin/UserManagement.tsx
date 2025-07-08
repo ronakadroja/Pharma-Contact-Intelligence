@@ -1,34 +1,24 @@
-import { useState, useEffect, useMemo } from 'react';
-import { getUsers, deleteUser, updateUserStatus, updateUserRole } from '../../api/auth';
+import {
+    createColumnHelper,
+    type ColumnDef,
+    type RowSelectionState,
+    type SortingState
+} from '@tanstack/react-table';
+import { format } from 'date-fns';
+import {
+    Download,
+    PencilIcon,
+    Plus
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CSVLink } from 'react-csv';
+import { deleteUser, getUsers, updateUserStatus } from '../../api/auth';
+import Pagination from '../../components/Pagination';
+import Table from '../../components/Table';
+import { Badge, Button, Card } from '../../components/ui/design-system';
 import UserCreationForm from '../../components/UserCreationForm';
 import { useToast } from '../../context/ToastContext';
 import type { User } from '../../types/auth';
-import Table from '../../components/Table';
-import Pagination from '../../components/Pagination';
-import LoadingState from '../../components/LoadingState';
-import {
-    Trash2,
-    PencilIcon,
-    X,
-    Search,
-    Download,
-    ChevronDown,
-    ChevronUp,
-    ArrowUpDown,
-    Clock,
-    Filter,
-    Plus
-} from 'lucide-react';
-import {
-    createColumnHelper,
-    type SortingState,
-    type ColumnDef,
-    type RowSelectionState
-} from '@tanstack/react-table';
-import { CSVLink } from 'react-csv';
-import { format } from 'date-fns';
-import classNames from 'classnames';
-import { Button, Card, Input, Badge } from '../../components/ui/design-system';
 
 
 
@@ -43,11 +33,17 @@ const UserManagement = () => {
     const [showModal, setShowModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
-    const [globalFilter, setGlobalFilter] = useState('');
     const [selectedRows, setSelectedRows] = useState<RowSelectionState>({});
-    const [showFilters, setShowFilters] = useState(false);
-    const [roleFilter, setRoleFilter] = useState<string>('all');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    // const [showFilters, setShowFilters] = useState(false);
+    // const [roleFilter, setRoleFilter] = useState<string>('all');
+    // const [statusFilter, setStatusFilter] = useState<string>('all');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [perPage, setPerPage] = useState(ITEMS_PER_PAGE);
+
     const { success, error: showError } = useToast();
 
     const columns = useMemo<ColumnDef<User, any>[]>(
@@ -129,15 +125,22 @@ const UserManagement = () => {
         []
     );
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (page: number = currentPage) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await getUsers();
-            const usersWithStatus: User[] = response.map(user => ({
+            const response = await getUsers(page, perPage);
+            const paginationData = response.data;
+
+            const usersWithStatus: User[] = paginationData.data.map(user => ({
                 ...user,
             }));
+
             setUsers(usersWithStatus);
+            setCurrentPage(paginationData.current_page);
+            setTotalPages(paginationData.last_page);
+            setTotalItems(paginationData.total);
+            setPerPage(paginationData.per_page);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch users');
         } finally {
@@ -146,25 +149,30 @@ const UserManagement = () => {
     };
 
     useEffect(() => {
-        fetchUsers();
+        fetchUsers(1); // Always start from page 1 on initial load
     }, []);
 
-    const handleDeleteUser = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this user?')) return;
-
-        try {
-            await deleteUser(id);
-            success('User deleted successfully!', {
-                title: 'Deleted'
-            });
-            fetchUsers();
-        } catch (err) {
-            showError(err instanceof Error ? err.message : 'Failed to delete user', {
-                title: 'Delete Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
-        }
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        fetchUsers(page);
     };
+
+    // const handleDeleteUser = async (id: string) => {
+    //     if (!window.confirm('Are you sure you want to delete this user?')) return;
+
+    //     try {
+    //         await deleteUser(id);
+    //         success('User deleted successfully!', {
+    //             title: 'Deleted'
+    //         });
+    //         fetchUsers();
+    //     } catch (err) {
+    //         showError(err instanceof Error ? err.message : 'Failed to delete user', {
+    //             title: 'Delete Failed',
+    //             duration: 6000 // Auto-close after 6 seconds
+    //         });
+    //     }
+    // };
 
     const handleBulkDelete = async () => {
         const selectedIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
@@ -176,7 +184,7 @@ const UserManagement = () => {
                 title: 'Bulk Delete Complete'
             });
             setSelectedRows({});
-            fetchUsers();
+            fetchUsers(currentPage);
         } catch (err) {
             showError(err instanceof Error ? err.message : 'Failed to delete users', {
                 title: 'Bulk Delete Failed',
@@ -193,7 +201,7 @@ const UserManagement = () => {
                 title: 'Status Updated'
             });
             setSelectedRows({});
-            fetchUsers();
+            fetchUsers(currentPage);
         } catch (err) {
             showError(err instanceof Error ? err.message : 'Failed to update user status', {
                 title: 'Status Update Failed',
@@ -202,22 +210,22 @@ const UserManagement = () => {
         }
     };
 
-    const handleBulkRoleChange = async (role: string) => {
-        const selectedIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
-        try {
-            await Promise.all(selectedIds.map(id => updateUserRole(id, role)));
-            success(`Successfully updated role for ${selectedIds.length} users!`, {
-                title: 'Role Updated'
-            });
-            setSelectedRows({});
-            fetchUsers();
-        } catch (err) {
-            showError(err instanceof Error ? err.message : 'Failed to update user role', {
-                title: 'Role Update Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
-        }
-    };
+    // const handleBulkRoleChange = async (role: string) => {
+    //     const selectedIds = Object.keys(selectedRows).filter(id => selectedRows[id]);
+    //     try {
+    //         await Promise.all(selectedIds.map(id => updateUserRole(id, role)));
+    //         success(`Successfully updated role for ${selectedIds.length} users!`, {
+    //             title: 'Role Updated'
+    //         });
+    //         setSelectedRows({});
+    //         fetchUsers();
+    //     } catch (err) {
+    //         showError(err instanceof Error ? err.message : 'Failed to update user role', {
+    //             title: 'Role Update Failed',
+    //             duration: 6000 // Auto-close after 6 seconds
+    //         });
+    //     }
+    // };
 
     const handleEditUser = (user: User) => {
         setSelectedUser(user);
@@ -231,7 +239,7 @@ const UserManagement = () => {
 
     const handleSuccess = () => {
         handleCloseModal();
-        fetchUsers();
+        fetchUsers(currentPage); // Maintain current page after user creation/update
     };
 
     return (
@@ -268,8 +276,8 @@ const UserManagement = () => {
             </Card>
 
             {/* Search and Filter Section */}
-            <Card variant="elevated" padding="none">
-                {/* <div className="p-6 border-b border-neutral-200">
+            {/* <Card variant="elevated" padding="none"> */}
+            {/* <div className="p-6 border-b border-neutral-200">
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="flex-1">
                             <Input
@@ -300,8 +308,8 @@ const UserManagement = () => {
                     </div>
                 </div> */}
 
-                {/* Filter Panel */}
-                {showFilters && (
+            {/* Filter Panel */}
+            {/* {showFilters && (
                     <div className="p-6 bg-neutral-50 border-b border-neutral-200">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -330,8 +338,8 @@ const UserManagement = () => {
                             </div>
                         </div>
                     </div>
-                )}
-            </Card>
+                )} */}
+            {/* </Card> */}
 
             {/* Table Section */}
             <Card variant="elevated" padding="none" className="overflow-hidden">
@@ -421,20 +429,18 @@ const UserManagement = () => {
                 </div>
 
                 {/* Pagination */}
-                {!isLoading && !error && users.length > 0 && (
+                {!isLoading && !error && totalItems > 0 && (
                     <div className="border-t border-gray-200 px-4 py-3 sm:px-6">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div className="text-sm text-gray-700 w-full sm:w-auto text-center sm:text-left">
-                                Showing {Math.min(ITEMS_PER_PAGE, users.length)} of {users.length} users
+                                Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, totalItems)} of {totalItems} users
                             </div>
                             <Pagination
-                                currentPage={1}
-                                totalPages={Math.ceil(users.length / ITEMS_PER_PAGE)}
-                                onPageChange={(page) => {
-                                    // Handle page change
-                                }}
-                                totalItems={users.length}
-                                pageSize={ITEMS_PER_PAGE}
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={handlePageChange}
+                                totalItems={totalItems}
+                                pageSize={perPage}
                             />
                         </div>
                     </div>

@@ -1,14 +1,14 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Filter, Plus, X, Loader2, Check, CheckCircle, XCircle } from "lucide-react";
+import { Check, CheckCircle, Filter, Loader2, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getContacts, revealContact, type Contact as APIContact } from "../../api/contacts";
 import FilterPanel from "../../components/FilterPanel";
 import Header from "../../components/Header";
 import Table from "../../components/Table";
 import ScrollToTopButton from "../../components/ui/ScrollToTopButton";
-import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../context/ToastContext";
+import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 
 interface FilterState {
     company_name: string[];
@@ -16,8 +16,8 @@ interface FilterState {
     department: string;
     designation: string;
     company_type: string;
-    person_country: string[];
-    company_country: string[];
+    person_country: string;
+    company_country: string;
     city: string;
 }
 
@@ -37,8 +37,8 @@ const ListingPage = () => {
         department: '',
         designation: '',
         company_type: '',
-        person_country: [] as string[],
-        company_country: [] as string[],
+        person_country: '',
+        company_country: '',
         city: '',
     });
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -72,14 +72,18 @@ const ListingPage = () => {
                 return;
             }
 
-            const available_credit = await revealContact(contact.id);
-            setCoins(available_credit);
+            const response = await revealContact(contact.id);
+            setCoins(response.available_credit);
             showToast(`Added ${contact.person_name} to your list`, 'success');
-            // Refresh the contacts list - reset to first page and reload all data
-            setCurrentPage(1);
-            setAllContacts([]);
-            setHasMoreData(true);
-            fetchContacts(1, false);
+
+            // Update only the specific contact in the current list with actual revealed data
+            setAllContacts(prevContacts =>
+                prevContacts.map(c =>
+                    c.id === contact.id
+                        ? { ...c, ...response.contact } // Update with actual revealed contact data
+                        : c
+                )
+            );
         } catch (error) {
             console.error('Error revealing contact:', error);
             showToast('Failed to reveal contact information', 'error');
@@ -123,17 +127,51 @@ const ListingPage = () => {
             ),
         },
         {
-            accessorKey: 'email',
-            header: 'Email',
-            cell: ({ row }) => (
-                <div className="text-sm text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer">
-                    {row.original.email ? (
-                        <span className="text-gray-900">{row.original.email}</span>
-                    ) : (
-                        <span className="text-gray-400 italic">-</span>
-                    )}
-                </div>
-            ),
+            accessorKey: 'contact_info',
+            header: 'Contact Info',
+            cell: ({ row }) => {
+                const hasEmail = row.original.email && row.original.email.trim() !== '';
+                const hasPhone = row.original.phone && row.original.phone.trim() !== '';
+
+                // If neither email nor phone is present, show masked dummy data
+                if (!hasEmail && !hasPhone) {
+                    return (
+                        <div className="text-sm text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <div className="space-y-1">
+                                <div className="flex items-center">
+                                    <span className="font-mono">****@*****.com</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <span className="text-xs font-mono">+1-***-***-****</span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="text-sm text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <div className="space-y-1">
+                            {/* Email */}
+                            <div className="flex items-center">
+                                {hasEmail ? (
+                                    <span className="text-gray-900">{row.original.email}</span>
+                                ) : (
+                                    <span className="text-gray-500 font-mono">****@*****.com</span>
+                                )}
+                            </div>
+                            {/* Phone */}
+                            <div className="flex items-center">
+                                {hasPhone ? (
+                                    <span className="text-gray-600 text-xs">{row.original.phone}</span>
+                                ) : (
+                                    <span className="text-gray-500 text-xs font-mono">+1-***-***-****</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'department',
@@ -216,12 +254,11 @@ const ListingPage = () => {
                 company_name: Array.isArray(searchParams.company_name)
                     ? searchParams.company_name.join(',')
                     : searchParams.company_name,
-                person_country: Array.isArray(searchParams.person_country)
-                    ? searchParams.person_country.join(',')
-                    : searchParams.person_country,
                 page,
                 per_page: ITEMS_PER_PAGE
             };
+
+
 
             const response = await getContacts(apiParams);
 
@@ -260,26 +297,16 @@ const ListingPage = () => {
     // Initial fetch on mount
     useEffect(() => {
         fetchContacts(1, false);
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch when search params change (reset infinite scroll)
     useEffect(() => {
-        const hasActiveFilters = Object.values(searchParams).some(value => value !== '');
-        const isClearing = Object.values(searchParams).every(value => value === '');
-
-        if (hasActiveFilters || isClearing) {
-            // Reset infinite scroll state
-            setCurrentPage(1);
-            setAllContacts([]);
-            setHasMoreData(true);
-            fetchContacts(1, false);
-
-            // Show appropriate feedback
-            if (isClearing) {
-                showToast('Filters cleared - showing all contacts', 'success');
-            }
-        }
-    }, [searchParams]);
+        // Reset infinite scroll state and fetch with new filters
+        setCurrentPage(1);
+        setAllContacts([]);
+        setHasMoreData(true);
+        fetchContacts(1, false);
+    }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load filter visibility state from localStorage on component mount
     useEffect(() => {
@@ -298,9 +325,15 @@ const ListingPage = () => {
         const previousFilters = { ...searchParams };
         const newFilters = {
             company_name: filters.company_name,
+            person_name: filters.person_name,
+            department: filters.department,
             designation: filters.designation,
+            company_type: filters.company_type,
             person_country: filters.person_country,
+            company_country: filters.company_country,
+            city: filters.city,
         };
+
 
         // Check if filters are being cleared
         const isClearing = Object.values(newFilters).every(value => {

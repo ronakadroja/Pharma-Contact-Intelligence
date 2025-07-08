@@ -103,9 +103,7 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
         const loadCompanyTypes = async () => {
             setIsLoadingCompanyTypes(true);
             try {
-                console.log('Loading company types...');
                 const companyTypeData = await fetchCompanyTypes();
-                console.log('Company types loaded:', companyTypeData.length, 'items');
                 setCompanyTypes(companyTypeData);
             } catch (error) {
                 console.error('Failed to load company types:', error);
@@ -183,7 +181,7 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
     };
 
     const clearField = (field: keyof FilterState) => {
-        let newFilters = { ...filters };
+        const newFilters = { ...filters };
 
         switch (field) {
             case 'company_name':
@@ -240,30 +238,7 @@ const FilterPanel = ({ onFilter, isMobile, isLoading = false }: FilterPanelProps
                             </Badge>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div
-                            className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors cursor-pointer"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleReset();
-                            }}
-                            title="Reset filters"
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleReset();
-                                }
-                            }}
-                        >
-                            <X size={18} />
-                        </div>
-                        <span className="text-neutral-500 hover:text-neutral-700 p-1 hover:bg-neutral-200 rounded-full transition-colors">
-                            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </span>
-                    </div>
+
                 </button>
             ) : (
                 <div className="p-4 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">

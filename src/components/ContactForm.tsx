@@ -8,6 +8,8 @@ import {
     validatePhoneNumber,
     type FormErrors
 } from '../utils/validation';
+import CustomizableDropdown from './ui/CustomizableDropdown';
+import { fetchCountries, fetchDepartments, fetchCompanyTypes, type CompanyOption } from '../api/combo';
 
 interface ContactFormProps {
     contact?: Contact | null;
@@ -15,16 +17,19 @@ interface ContactFormProps {
     onCancel?: () => void;
 }
 
-const DEPARTMENTS = ['Sales', 'Purchase', 'Supply Chain', 'Marketing', 'R&D'];
-const COUNTRIES = ['India', 'USA', 'UK', 'Canada', 'Australia', 'Germany', 'France'];
-const COMPANY_TYPES = ['Medical', 'Pharmaceutical', 'Healthcare', 'Research', 'Other'];
-const REFERENCES = ['LinkedIn', 'Website', 'Referral', 'Conference', 'Other'];
-
 const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
     const { success, error: showError } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<FormErrors>({});
     const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+    // Combo data states
+    const [countries, setCountries] = useState<CompanyOption[]>([]);
+    const [departments, setDepartments] = useState<CompanyOption[]>([]);
+    const [companyTypes, setCompanyTypes] = useState<CompanyOption[]>([]);
+    const [isLoadingCountries, setIsLoadingCountries] = useState(false);
+    const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
+    const [isLoadingCompanyTypes, setIsLoadingCompanyTypes] = useState(false);
     const [formData, setFormData] = useState({
         company_name: contact?.company_name || '',
         person_name: contact?.person_name || '',
@@ -43,6 +48,46 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
         status: contact?.status || 'Active',
         is_verified: contact?.is_verified || 0
     });
+
+    // Load combo data on component mount
+    useEffect(() => {
+        const loadComboData = async () => {
+            // Load countries
+            setIsLoadingCountries(true);
+            try {
+                const countriesData = await fetchCountries();
+                setCountries(countriesData);
+            } catch (error) {
+                console.error('Failed to load countries:', error);
+            } finally {
+                setIsLoadingCountries(false);
+            }
+
+            // Load departments
+            setIsLoadingDepartments(true);
+            try {
+                const departmentsData = await fetchDepartments();
+                setDepartments(departmentsData);
+            } catch (error) {
+                console.error('Failed to load departments:', error);
+            } finally {
+                setIsLoadingDepartments(false);
+            }
+
+            // Load company types
+            setIsLoadingCompanyTypes(true);
+            try {
+                const companyTypesData = await fetchCompanyTypes();
+                setCompanyTypes(companyTypesData);
+            } catch (error) {
+                console.error('Failed to load company types:', error);
+            } finally {
+                setIsLoadingCompanyTypes(false);
+            }
+        };
+
+        loadComboData();
+    }, []);
 
     // Reset form when contact prop changes
     useEffect(() => {
@@ -158,6 +203,31 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // Handle dropdown changes
+    const handleCountryChange = (value: string, fieldName: 'person_country' | 'company_country') => {
+        setFormData(prev => ({ ...prev, [fieldName]: value }));
+        setTouched(prev => ({ ...prev, [fieldName]: true }));
+
+        const error = validateField(fieldName, value);
+        setErrors(prev => ({ ...prev, [fieldName]: error }));
+    };
+
+    const handleDesignationChange = (value: string) => {
+        setFormData(prev => ({ ...prev, designation: value }));
+        setTouched(prev => ({ ...prev, designation: true }));
+
+        const error = validateField('designation', value);
+        setErrors(prev => ({ ...prev, designation: error }));
+    };
+
+    const handleCompanyTypeChange = (value: string) => {
+        setFormData(prev => ({ ...prev, company_type: value }));
+        setTouched(prev => ({ ...prev, company_type: true }));
+
+        const error = validateField('company_type', value);
+        setErrors(prev => ({ ...prev, company_type: error }));
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
@@ -255,7 +325,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
             // Extract error message and status code
             let errorMessage = `Failed to ${contact ? 'update' : 'add'} contact`;
-            let statusCode = err?.response?.status;
+            const statusCode = err?.response?.status;
             let isDuplicateError = false;
 
             if (err?.response?.data) {
@@ -390,23 +460,18 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 <label htmlFor="company_type" className="block text-sm font-medium text-gray-700">
                                     Company Type <span className="text-red-500">*</span>
                                 </label>
-                                <select
+                                <CustomizableDropdown
                                     id="company_type"
-                                    name="company_type"
+                                    options={companyTypes}
                                     value={formData.company_type}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                    required
-                                    className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.company_type && errors.company_type
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                        : 'border-gray-300'
-                                        }`}
-                                >
-                                    <option value="">Select company type</option>
-                                    {COMPANY_TYPES.map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
+                                    onChange={handleCompanyTypeChange}
+                                    placeholder="Select or enter company type"
+                                    emptyMessage="No company types found. Type a custom company type and click outside to use it."
+                                    disabled={isLoading}
+                                    loading={isLoadingCompanyTypes}
+                                    allowCustomInput={true}
+                                    className={`mt-1 ${touched.company_type && errors.company_type ? 'border-red-300' : ''}`}
+                                />
                                 {touched.company_type && errors.company_type && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -477,23 +542,18 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 <label htmlFor="company_country" className="block text-sm font-medium text-gray-700">
                                     Company Country <span className="text-red-500">*</span>
                                 </label>
-                                <select
+                                <CustomizableDropdown
                                     id="company_country"
-                                    name="company_country"
+                                    options={countries}
                                     value={formData.company_country}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                    required
-                                    className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.company_country && errors.company_country
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                        : 'border-gray-300'
-                                        }`}
-                                >
-                                    <option value="">Select country</option>
-                                    {COUNTRIES.map(country => (
-                                        <option key={country} value={country}>{country}</option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => handleCountryChange(value, 'company_country')}
+                                    placeholder="Select company country"
+                                    emptyMessage="No countries found"
+                                    disabled={isLoading}
+                                    loading={isLoadingCountries}
+                                    allowCustomInput={false}
+                                    className={`mt-1 ${touched.company_country && errors.company_country ? 'border-red-300' : ''}`}
+                                />
                                 {touched.company_country && errors.company_country && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -600,23 +660,20 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 <label htmlFor="department" className="block text-sm font-medium text-gray-700">
                                     Department <span className="text-red-500">*</span>
                                 </label>
-                                <select
+                                <input
+                                    type="text"
                                     id="department"
                                     name="department"
                                     value={formData.department}
                                     onChange={handleChange}
                                     onBlur={handleBlur}
                                     required
+                                    placeholder="Enter department"
                                     className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.department && errors.department
                                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                                         : 'border-gray-300'
                                         }`}
-                                >
-                                    <option value="">Select department</option>
-                                    {DEPARTMENTS.map(dept => (
-                                        <option key={dept} value={dept}>{dept}</option>
-                                    ))}
-                                </select>
+                                />
                                 {touched.department && errors.department && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -631,19 +688,17 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
                                     Designation <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="text"
+                                <CustomizableDropdown
                                     id="designation"
-                                    name="designation"
+                                    options={departments}
                                     value={formData.designation}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                    required
-                                    placeholder="Enter designation"
-                                    className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.designation && errors.designation
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                        : 'border-gray-300'
-                                        }`}
+                                    onChange={handleDesignationChange}
+                                    placeholder="Select or enter designation"
+                                    emptyMessage="No designations found. Type a custom designation and click outside to use it."
+                                    disabled={isLoading}
+                                    loading={isLoadingDepartments}
+                                    allowCustomInput={true}
+                                    className={`mt-1 ${touched.designation && errors.designation ? 'border-red-300' : ''}`}
                                 />
                                 {touched.designation && errors.designation && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -659,23 +714,18 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 <label htmlFor="person_country" className="block text-sm font-medium text-gray-700">
                                     Country <span className="text-red-500">*</span>
                                 </label>
-                                <select
+                                <CustomizableDropdown
                                     id="person_country"
-                                    name="person_country"
+                                    options={countries}
                                     value={formData.person_country}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                    required
-                                    className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.person_country && errors.person_country
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                        : 'border-gray-300'
-                                        }`}
-                                >
-                                    <option value="">Select country</option>
-                                    {COUNTRIES.map(country => (
-                                        <option key={country} value={country}>{country}</option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => handleCountryChange(value, 'person_country')}
+                                    placeholder="Select person country"
+                                    emptyMessage="No countries found"
+                                    disabled={isLoading}
+                                    loading={isLoadingCountries}
+                                    allowCustomInput={false}
+                                    className={`mt-1 ${touched.person_country && errors.person_country ? 'border-red-300' : ''}`}
+                                />
                                 {touched.person_country && errors.person_country && (
                                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                         <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -711,18 +761,15 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 <label htmlFor="reference" className="block text-sm font-medium text-gray-700">
                                     Reference Source
                                 </label>
-                                <select
+                                <input
+                                    type="text"
                                     id="reference"
                                     name="reference"
                                     value={formData.reference}
                                     onChange={handleChange}
+                                    placeholder="Enter reference source"
                                     className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Select reference source</option>
-                                    {REFERENCES.map(ref => (
-                                        <option key={ref} value={ref}>{ref}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
                             <div>

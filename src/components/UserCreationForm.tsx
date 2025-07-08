@@ -1,7 +1,7 @@
 import { Mail, Phone, User as UserIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createUser, updateUser } from '../api/auth';
-import { fetchCountries, fetchCompanies, type CompanyOption } from '../api/combo';
+import { fetchCountries, type CompanyOption } from '../api/combo';
 import { useToast } from '../context/ToastContext';
 import type { CreateUserPayload, UpdateUserPayload, User } from '../types/auth';
 import { encodePassword } from '../utils/auth';
@@ -19,7 +19,7 @@ import {
 } from '../utils/validation';
 import { Button, Input } from './ui/design-system';
 import SearchableDropdown from './ui/SearchableDropdown';
-import CustomizableDropdown from './ui/CustomizableDropdown';
+
 
 
 interface UserCreationFormProps {
@@ -53,10 +53,8 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
     const [touched, setTouched] = useState<Record<string, boolean>>({});
     const [countries, setCountries] = useState<CompanyOption[]>([]);
     const [isLoadingCountries, setIsLoadingCountries] = useState(false);
-    const [companies, setCompanies] = useState<CompanyOption[]>([]);
-    const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
 
-    // Load countries and companies on component mount
+    // Load countries on component mount
     useEffect(() => {
         const loadCountries = async () => {
             setIsLoadingCountries(true);
@@ -71,21 +69,7 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
             }
         };
 
-        const loadCompanies = async () => {
-            setIsLoadingCompanies(true);
-            try {
-                const companyData = await fetchCompanies();
-                setCompanies(companyData);
-            } catch (error) {
-                console.error('Failed to load companies:', error);
-                setCompanies([]);
-            } finally {
-                setIsLoadingCompanies(false);
-            }
-        };
-
         loadCountries();
-        loadCompanies();
     }, []);
 
     // Reset form when user prop changes
@@ -241,27 +225,6 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
         }));
     };
 
-    // Handle company dropdown change (now supports custom input)
-    const handleCompanyChange = (companyName: string) => {
-        // Update form data with company name (can be from dropdown or custom input)
-        setFormData(prev => ({
-            ...prev,
-            company: companyName
-        }));
-
-        // Mark field as touched
-        setTouched(prev => ({
-            ...prev,
-            company: true
-        }));
-
-        // Validate field
-        const error = validateField('company', companyName);
-        setErrors(prev => ({
-            ...prev,
-            company: error
-        }));
-    };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -476,28 +439,18 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
                 <div>
                     <h3 className="text-sm font-medium text-neutral-900 mb-4">Company Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div>
-                            <CustomizableDropdown
-                                label="Company Name"
-                                id="company"
-                                options={companies}
-                                value={formData.company}
-                                onChange={handleCompanyChange}
-                                placeholder="Select a company  name"
-                                emptyMessage="No companies found. Type a custom company name and click outside to use it."
-                                disabled={isLoading}
-                                loading={isLoadingCompanies}
-                                allowCustomInput={true}
-                            />
-                            {touched.company && errors.company && (
-                                <p className="text-sm text-error-600 flex items-center gap-1 mt-1">
-                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    {errors.company}
-                                </p>
-                            )}
-                        </div>
+                        <Input
+                            type="text"
+                            id="company"
+                            name="company"
+                            label="Company Name"
+                            value={formData.company}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            required
+                            placeholder="Enter company name"
+                            error={touched.company ? errors.company : undefined}
+                        />
                         <div className="space-y-2">
                             <SearchableDropdown
                                 label="Country"
