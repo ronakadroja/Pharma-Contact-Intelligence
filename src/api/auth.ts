@@ -122,6 +122,34 @@ export const updateUserStatus = async (userId: string, status: 'active' | 'inact
     }
 };
 
+// User Profile API
+export interface UserProfile {
+    id: number;
+    name: string;
+    email: string;
+    phone_number: string;
+    company: string;
+    credits: string;
+    subscription_start_date: string | null;
+    subscription_end_date: string | null;
+    status: string;
+}
+
+export interface UserProfileResponse {
+    success: boolean;
+    data: UserProfile;
+}
+
+export const getUserProfile = async (): Promise<UserProfileResponse> => {
+    try {
+        const response = await api.get<UserProfileResponse>(getUserUrl('DETAIL'));
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        throw new Error('Failed to fetch user profile');
+    }
+};
+
 export const updateUserRole = async (userId: string, role: string): Promise<void> => {
     try {
         await api.patch(getUserUrl('ROLE', userId), { role });

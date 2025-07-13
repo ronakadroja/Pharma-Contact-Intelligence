@@ -168,10 +168,47 @@ export const getSavedContacts = async (): Promise<SavedContactsResponse> => {
         const url = getContactUrl('SAVED');
         console.log('Attempting to fetch saved contacts from URL:', url);
         const response = await api.get<SavedContactsResponse>(url);
-        return response.data;
+
+        // Handle successful response with proper defaults
+        const data = response.data;
+
+        // If response is empty or null, return default structure
+        if (!data || typeof data !== 'object') {
+            console.log('Empty or invalid response, returning default structure');
+            return {
+                available_credit: '0',
+                my_list: []
+            };
+        }
+
+        // Ensure response has required structure
+        const result: SavedContactsResponse = {
+            available_credit: data.available_credit || '0',
+            my_list: Array.isArray(data.my_list) ? data.my_list : []
+        };
+
+        console.log('Successfully fetched saved contacts:', {
+            credit: result.available_credit,
+            contactCount: result.my_list.length
+        });
+
+        return result;
     } catch (error) {
         console.error('Error fetching saved contacts:', error);
         console.error('Failed URL was:', getContactUrl('SAVED'));
+
+        // Check if it's a 200 response with empty body
+        if (error && typeof error === 'object' && 'response' in error) {
+            const responseError = error as { response?: { status: number; data?: unknown } };
+            if (responseError.response?.status === 200) {
+                console.log('Received 200 status with empty response, treating as empty list');
+                return {
+                    available_credit: '0',
+                    my_list: []
+                };
+            }
+        }
+
         throw error;
     }
 };

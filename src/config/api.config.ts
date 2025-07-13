@@ -46,7 +46,8 @@ export const API_CONFIG = {
       UPDATE: (id: string) => `/api/users/${id}`,
       DELETE: (id: string) => `/api/users/${id}`,
       STATUS: (id: string) => `/api/users/${id}/status`,
-      ROLE: (id: string) => `/api/users/${id}/role`
+      ROLE: (id: string) => `/api/users/${id}/role`,
+      DETAIL: '/api/user/detail'
     },
 
     // Contact management endpoints

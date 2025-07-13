@@ -11,6 +11,7 @@ const DetailPage = lazy(() => import("../pages/DetailPage"));
 const MyListPage = lazy(() => import("../pages/MyListPage"));
 const AdminDashboard = lazy(() => import("../pages/AdminDashboard"));
 const UserDashboard = lazy(() => import("../pages/UserDashboard"));
+const UserProfile = lazy(() => import("../pages/UserProfile"));
 const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
 const ContactManagement = lazy(() => import("../pages/admin/ContactManagement"));
 
@@ -130,6 +131,11 @@ const AppRoutes = () => {
                                 <Route path="my-list" element={
                                     <PageTransition>
                                         <MyListPage />
+                                    </PageTransition>
+                                } />
+                                <Route path="profile" element={
+                                    <PageTransition>
+                                        <UserProfile />
                                     </PageTransition>
                                 } />
                             </Routes>

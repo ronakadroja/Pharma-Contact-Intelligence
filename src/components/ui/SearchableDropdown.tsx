@@ -134,7 +134,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 
       <div className="relative">
         <div
-          className={`w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-10 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all bg-white cursor-pointer ${disabled || loading ? 'bg-gray-50 cursor-not-allowed' : ''
+          className={`w-full border border-gray-300 rounded-md px-3 py-2 pr-10 h-10 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all bg-white cursor-pointer ${disabled || loading ? 'bg-gray-50 cursor-not-allowed' : ''
             }`}
           onClick={toggleDropdown}
         >
@@ -146,7 +146,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search..."
-              className="w-full outline-none bg-transparent text-sm"
+              className="w-full outline-none bg-transparent text-sm placeholder:text-sm"
               disabled={disabled || loading}
             />
           ) : (
@@ -175,7 +175,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
             {loading ? (
               <div className="px-4 py-3 text-sm text-gray-500">Loading...</div>
             ) : filteredOptions.length > 0 ? (
@@ -183,8 +183,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                 <div
                   key={option.id}
                   className={`px-4 py-3 text-sm cursor-pointer transition-colors ${index === highlightedIndex
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-50'
                     } ${value === option.id ? 'bg-blue-100 text-blue-800 font-medium' : ''}`}
                   onClick={() => handleSelect(option)}
                   onMouseEnter={() => setHighlightedIndex(index)}

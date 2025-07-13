@@ -9,6 +9,8 @@ interface UseInfiniteScrollOptions {
     isLoading?: boolean;
     /** Whether there are more items to load */
     hasMore?: boolean;
+    /** Use table container scroll instead of window scroll */
+    useTableScroll?: boolean;
 }
 
 interface UseInfiniteScrollReturn {
@@ -18,6 +20,8 @@ interface UseInfiniteScrollReturn {
     loadMore: () => void;
     /** Ref to attach to the container element */
     containerRef: React.RefObject<HTMLDivElement>;
+    /** Ref to attach to the table scroll container */
+    tableScrollRef: React.RefObject<HTMLDivElement>;
     /** Function to reset the infinite scroll state */
     reset: () => void;
 }
@@ -30,11 +34,13 @@ const useInfiniteScroll = (
         threshold = 200,
         enabled = true,
         isLoading = false,
-        hasMore = true
+        hasMore = true,
+        useTableScroll = false
     } = options;
 
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const tableScrollRef = useRef<HTMLDivElement>(null);
     const loadingRef = useRef(false);
 
     const loadMore = useCallback(() => {
@@ -69,39 +75,74 @@ const useInfiniteScroll = (
             return;
         }
 
-        // Always use window scroll for this implementation
-        const handleWindowScroll = () => {
-            if (loadingRef.current) {
-                return;
+        if (useTableScroll) {
+            // Use table container scroll
+            const handleTableScroll = () => {
+                if (loadingRef.current || !tableScrollRef.current) {
+                    return;
+                }
+
+                const container = tableScrollRef.current;
+                const scrollTop = container.scrollTop;
+                const scrollHeight = container.scrollHeight;
+                const clientHeight = container.clientHeight;
+                const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+                const isNearBottom = distanceFromBottom <= threshold;
+
+                if (isNearBottom) {
+                    loadMore();
+                }
+            };
+
+            const container = tableScrollRef.current;
+            if (container) {
+                container.addEventListener('scroll', handleTableScroll, { passive: true });
+
+                // Also trigger an initial check in case we're already at the bottom
+                setTimeout(() => {
+                    handleTableScroll();
+                }, 100);
+
+                return () => {
+                    container.removeEventListener('scroll', handleTableScroll);
+                };
             }
+        } else {
+            // Use window scroll for backward compatibility
+            const handleWindowScroll = () => {
+                if (loadingRef.current) {
+                    return;
+                }
 
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const scrollHeight = document.documentElement.scrollHeight;
-            const clientHeight = window.innerHeight;
-            const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
-            const isNearBottom = distanceFromBottom <= threshold;
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const scrollHeight = document.documentElement.scrollHeight;
+                const clientHeight = window.innerHeight;
+                const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+                const isNearBottom = distanceFromBottom <= threshold;
 
-            if (isNearBottom) {
-                loadMore();
-            }
-        };
+                if (isNearBottom) {
+                    loadMore();
+                }
+            };
 
-        window.addEventListener('scroll', handleWindowScroll, { passive: true });
+            window.addEventListener('scroll', handleWindowScroll, { passive: true });
 
-        // Also trigger an initial check in case we're already at the bottom
-        setTimeout(() => {
-            handleWindowScroll();
-        }, 100);
+            // Also trigger an initial check in case we're already at the bottom
+            setTimeout(() => {
+                handleWindowScroll();
+            }, 100);
 
-        return () => {
-            window.removeEventListener('scroll', handleWindowScroll);
-        };
-    }, [enabled, hasMore, isLoading, isLoadingMore, threshold, loadMore]);
+            return () => {
+                window.removeEventListener('scroll', handleWindowScroll);
+            };
+        }
+    }, [enabled, hasMore, isLoading, isLoadingMore, threshold, loadMore, useTableScroll]);
 
     return {
         isLoadingMore,
         loadMore,
         containerRef,
+        tableScrollRef,
         reset
     };
 };

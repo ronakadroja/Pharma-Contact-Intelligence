@@ -1,5 +1,5 @@
 import type { Contact } from "../api/contacts";
-import { Pencil } from "lucide-react";
+import { Linkedin, Pencil } from "lucide-react";
 import { Badge } from "./ui/design-system";
 
 interface ContactTableProps {
@@ -58,8 +58,21 @@ const ContactTable = ({ data, isLoading = false, onEdit }: ContactTableProps) =>
                                     <td className="px-3 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <div>
-                                                <div className="text-sm font-semibold text-neutral-900">
-                                                    {contact.company_name}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-semibold text-neutral-900">
+                                                        {contact.company_name}
+                                                    </span>
+                                                    {contact.company_linkedin_url && (
+                                                        <a
+                                                            href={contact.company_linkedin_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                            title="View Company LinkedIn"
+                                                        >
+                                                            <Linkedin size={14} />
+                                                        </a>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-neutral-500">{contact.company_type}</div>
                                             </div>
@@ -67,7 +80,20 @@ const ContactTable = ({ data, isLoading = false, onEdit }: ContactTableProps) =>
                                     </td>
                                     <td className="px-3 py-4 whitespace-nowrap">
                                         <div>
-                                            <div className="text-sm font-semibold text-neutral-900">{contact.person_name}</div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-semibold text-neutral-900">{contact.person_name}</span>
+                                                {contact.person_linkedin_url && (
+                                                    <a
+                                                        href={contact.person_linkedin_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                        title="View LinkedIn Profile"
+                                                    >
+                                                        <Linkedin size={14} />
+                                                    </a>
+                                                )}
+                                            </div>
                                             <div className="text-xs text-neutral-500">{contact.designation}</div>
                                         </div>
                                     </td>

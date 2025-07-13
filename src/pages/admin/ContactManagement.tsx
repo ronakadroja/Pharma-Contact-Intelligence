@@ -1,5 +1,5 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Download, Filter, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Download, Filter, Linkedin, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
     bulkImportContacts,
@@ -90,7 +90,20 @@ const ContactManagement = () => {
             header: 'Company',
             cell: ({ row }) => (
                 <div>
-                    <div className="text-sm font-medium text-gray-900">{row.original.company_name}</div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{row.original.company_name}</span>
+                        {row.original.company_linkedin_url && (
+                            <a
+                                href={row.original.company_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                title="View Company LinkedIn"
+                            >
+                                <Linkedin size={14} />
+                            </a>
+                        )}
+                    </div>
                     {row.original.company_website && (
                         <div className="text-sm text-gray-500">{row.original.company_website}</div>
                     )}
@@ -102,7 +115,20 @@ const ContactManagement = () => {
             header: 'Contact Person',
             cell: ({ row }) => (
                 <div>
-                    <div className="text-sm text-gray-900">{row.original.person_name}</div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-900">{row.original.person_name}</span>
+                        {row.original.person_linkedin_url && (
+                            <a
+                                href={row.original.person_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                title="View LinkedIn Profile"
+                            >
+                                <Linkedin size={14} />
+                            </a>
+                        )}
+                    </div>
                     <div className="text-sm text-gray-500">{row.original.designation}</div>
                 </div>
             ),

@@ -1,8 +1,9 @@
-import { CheckCircle, Download, Mail, Phone, X, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle, Download, Linkedin, Mail, Phone, X, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSavedContacts } from '../api/contacts';
 import Header from '../components/Header';
-import { Badge, Button, Card, CardContent, CardHeader } from '../components/ui/design-system';
+import Table from '../components/Table';
+import { Button, Card } from '../components/ui/design-system';
 import { useToast } from '../context/ToastContext';
 import { exportContacts } from '../utils/csvExport';
 import {
@@ -12,6 +13,7 @@ import {
     type FormErrors,
     type ValidationResult
 } from '../utils/validation';
+import type { ColumnDef, RowSelectionState, SortingState } from '@tanstack/react-table';
 
 interface SavedContact {
     id?: string;
@@ -45,6 +47,11 @@ const MyListPage = () => {
     const [isExporting, setIsExporting] = useState(false);
     const [validationErrors, setValidationErrors] = useState<FormErrors>({});
 
+    // Table state
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [selectedRows, setSelectedRows] = useState<RowSelectionState>({});
+    const tableScrollRef = useRef<HTMLDivElement>(null);
+
     // Computed values
     const selectedContacts = useMemo(() => {
         return savedContacts.filter(contact => selectedContactIds.has(contact.id || ''));
@@ -53,7 +60,7 @@ const MyListPage = () => {
     const hasSelectedContacts = selectedContacts.length > 0;
 
     // Validation functions
-    const validateContactData = (contact: SavedContact): ValidationResult => {
+    const validateSavedContactData = useCallback((contact: SavedContact): ValidationResult => {
         // Validate required fields
         if (!validateRequired(contact.company_name, 'Company name').isValid) {
             return { isValid: false, error: 'Company name is required' };
@@ -84,7 +91,185 @@ const MyListPage = () => {
         }
 
         return { isValid: true };
-    };
+    }, []);
+
+    // Table columns definition
+    const columns: ColumnDef<SavedContact>[] = useMemo(() => [
+        {
+            id: 'select',
+            header: ({ table }) => (
+                <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    checked={table.getIsAllPageRowsSelected()}
+                    onChange={table.getToggleAllPageRowsSelectedHandler()}
+                    aria-label="Select all contacts"
+                />
+            ),
+            cell: ({ row }) => (
+                <input
+                    type="checkbox"
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    checked={row.getIsSelected()}
+                    onChange={row.getToggleSelectedHandler()}
+                    aria-label={`Select contact ${row.original.person_name}`}
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        },
+        {
+            accessorKey: 'person_name',
+            header: 'Contact Name',
+            cell: ({ row }) => (
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{row.original.person_name}</span>
+                        {row.original.person_linkedin_url && (
+                            <a
+                                href={row.original.person_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                title="View LinkedIn Profile"
+                            >
+                                <Linkedin size={16} />
+                            </a>
+                        )}
+                        {/* Validation status indicator */}
+                        {(() => {
+                            const validation = validateSavedContactData(row.original);
+                            if (!validation.isValid) {
+                                return (
+                                    <div
+                                        className="flex items-center gap-1 text-xs text-red-600"
+                                        title={`Validation Error: ${validation.error}`}
+                                    >
+                                        <XCircle size={12} />
+                                        <span>Invalid</span>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {row.original.designation} | {row.original.department}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'company_name',
+            header: 'Company',
+            cell: ({ row }) => (
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{row.original.company_name}</span>
+                        {row.original.company_linkedin_url && (
+                            <a
+                                href={row.original.company_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                title="View Company LinkedIn"
+                            >
+                                <Linkedin size={16} />
+                            </a>
+                        )}
+                    </div>
+                    {row.original.company_website && (
+                        <a
+                            href={row.original.company_website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline mt-1"
+                        >
+                            {row.original.company_website}
+                        </a>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'contact_info',
+            header: 'Contact Info',
+            cell: ({ row }) => (
+                <div className="flex flex-col gap-1">
+                    <a
+                        href={`mailto:${row.original.email}`}
+                        className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                    >
+                        <Mail size={14} />
+                        {row.original.email}
+                    </a>
+                    {row.original.phone_number && (
+                        <a
+                            href={`tel:${row.original.phone_number}`}
+                            className="flex items-center gap-1 text-sm text-green-600 hover:underline"
+                        >
+                            <Phone size={14} />
+                            {row.original.phone_number}
+                        </a>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'location',
+            header: 'Location',
+            cell: ({ row }) => (
+                <div className="text-sm text-gray-900">
+                    {row.original.city}, {row.original.person_country}
+                    {row.original.company_country && row.original.company_country !== row.original.person_country && (
+                        <div className="text-xs text-gray-500">Company: {row.original.company_country}</div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'status',
+            header: 'Status',
+            cell: ({ row }) => (
+                <div className={`flex items-center gap-1 text-xs ${row.original.is_verified === 1 ? 'text-green-600' : 'text-red-600'}`}>
+                    {row.original.is_verified === 1 ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                    {row.original.is_verified === 1 ? 'Verified' : 'Not Verified'}
+                </div>
+            ),
+        },
+        // {
+        //     accessorKey: 'actions',
+        //     header: 'Actions',
+        //     cell: ({ row }) => (
+        //         <div className="flex items-center gap-2">
+        //             {(row.original.person_linkedin_url || row.original.company_linkedin_url) && (
+        //                 <div className="flex flex-col gap-1">
+        //                     {row.original.person_linkedin_url && (
+        //                         <a
+        //                             href={row.original.person_linkedin_url}
+        //                             target="_blank"
+        //                             rel="noopener noreferrer"
+        //                             className="text-xs text-blue-600 hover:underline"
+        //                         >
+        //                             Personal LinkedIn
+        //                         </a>
+        //                     )}
+        //                     {row.original.company_linkedin_url && (
+        //                         <a
+        //                             href={row.original.company_linkedin_url}
+        //                             target="_blank"
+        //                             rel="noopener noreferrer"
+        //                             className="text-xs text-blue-600 hover:underline"
+        //                         >
+        //                             Company LinkedIn
+        //                         </a>
+        //                     )}
+        //                 </div>
+        //             )}
+        //         </div>
+        //     ),
+        // },
+    ], [validateSavedContactData]);
 
     const validateExportOperation = useCallback((): ValidationResult => {
         // Check if user has sufficient credits
@@ -100,7 +285,7 @@ const MyListPage = () => {
 
         // Validate selected contacts data integrity
         for (const contact of selectedContacts) {
-            const contactValidation = validateContactData(contact);
+            const contactValidation = validateSavedContactData(contact);
             if (!contactValidation.isValid) {
                 return {
                     isValid: false,
@@ -110,7 +295,7 @@ const MyListPage = () => {
         }
 
         return { isValid: true };
-    }, [availableCredit, selectedContacts]);
+    }, [availableCredit, selectedContacts, validateSavedContactData]);
 
     const validateContactSelection = useCallback((contactIds: Set<string>): ValidationResult => {
         if (contactIds.size === 0) {
@@ -130,7 +315,35 @@ const MyListPage = () => {
 
     const handleClearSelection = useCallback(() => {
         setSelectedContactIds(new Set());
+        setSelectedRows({});
     }, []);
+
+    // Sync selectedRows with selectedContactIds
+    useEffect(() => {
+        const newSelectedRows: RowSelectionState = {};
+        savedContacts.forEach((contact, index) => {
+            if (selectedContactIds.has(contact.id || '')) {
+                newSelectedRows[index] = true;
+            }
+        });
+        setSelectedRows(newSelectedRows);
+    }, [selectedContactIds, savedContacts]);
+
+    // Handle table row selection changes
+    const handleRowSelectionChange = useCallback((updater: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState)) => {
+        const newSelectedRows = typeof updater === 'function' ? updater(selectedRows) : updater;
+        setSelectedRows(newSelectedRows);
+
+        // Update selectedContactIds based on table selection
+        const newSelectedIds = new Set<string>();
+        Object.keys(newSelectedRows).forEach(indexStr => {
+            const index = parseInt(indexStr);
+            if (newSelectedRows[index] && savedContacts[index]) {
+                newSelectedIds.add(savedContacts[index].id || '');
+            }
+        });
+        setSelectedContactIds(newSelectedIds);
+    }, [selectedRows, savedContacts]);
 
     // Data fetching with validation - runs only once on mount
     useEffect(() => {
@@ -139,10 +352,14 @@ const MyListPage = () => {
                 setIsLoading(true);
                 const response = await getSavedContacts();
 
-                if (response) {
+                // Handle successful response (including empty responses)
+                if (response && typeof response === 'object') {
                     // Validate credit information
                     const newValidationErrors: FormErrors = {};
-                    const creditValidation = validateCredits(response.available_credit);
+
+                    // Set available credit (default to '0' if not provided)
+                    const availableCredit = response.available_credit || '0';
+                    const creditValidation = validateCredits(availableCredit);
                     if (!creditValidation.isValid) {
                         newValidationErrors.credits = creditValidation.error || '';
                         showError('Invalid credit information received from server', {
@@ -151,10 +368,13 @@ const MyListPage = () => {
                         });
                     }
 
-                    setAvailableCredit(response.available_credit);
+                    setAvailableCredit(availableCredit);
+
+                    // Handle contact list (may be empty array or undefined)
+                    const contactList = response.my_list || [];
 
                     // Format and validate contact data
-                    const formattedContacts = response.my_list.map((contact, index) => {
+                    const formattedContacts = contactList.map((contact, index) => {
                         const formattedContact = {
                             ...contact,
                             id: index.toString(),
@@ -162,7 +382,7 @@ const MyListPage = () => {
                         };
 
                         // Validate each contact's data integrity
-                        const contactValidation = validateContactData(formattedContact);
+                        const contactValidation = validateSavedContactData(formattedContact);
                         if (!contactValidation.isValid) {
                             console.warn(`Contact validation failed for ${contact.person_name}:`, contactValidation.error);
                             newValidationErrors[`contact_${index}`] = contactValidation.error || '';
@@ -182,11 +402,21 @@ const MyListPage = () => {
                             duration: 8000
                         });
                     }
+
+                    // Show success message for empty list (optional)
+                    if (contactList.length === 0) {
+                        console.log('No saved contacts found - this is normal for new users or users who haven\'t saved any contacts yet.');
+                    }
                 } else {
-                    showError('Failed to load saved contacts', {
+                    // Only show error if response is truly invalid (null, undefined, or not an object)
+                    console.error('Invalid response format from getSavedContacts:', response);
+                    showError('Invalid response format from server', {
                         title: 'Error',
                         duration: 6000
                     });
+                    // Set default values for empty state
+                    setAvailableCredit('0');
+                    setSavedContacts([]);
                 }
             } catch (error) {
                 console.error('Error fetching saved contacts:', error);
@@ -200,7 +430,8 @@ const MyListPage = () => {
         };
 
         fetchSavedContacts();
-    }, [showError]); // Only depends on showError which is stable
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Intentionally empty - only run on mount to prevent re-runs on export button clicks
 
     // Manual refresh function for when needed
     // const refreshContacts = useCallback(async () => {
@@ -333,7 +564,7 @@ const MyListPage = () => {
         // Validate contacts before export
         const invalidContacts: string[] = [];
         contactsToExport.forEach(contact => {
-            const validation = validateContactData(contact);
+            const validation = validateSavedContactData(contact);
             if (!validation.isValid) {
                 invalidContacts.push(`${contact.person_name}: ${validation.error}`);
             }
@@ -370,7 +601,7 @@ const MyListPage = () => {
                 setIsExporting(false);
             }
         );
-    }, [selectedContacts, savedContacts, selectedContactIds, validateExportOperation, validateContactSelection, success, showError]);
+    }, [selectedContacts, savedContacts, selectedContactIds, validateExportOperation, validateContactSelection, success, showError, validateSavedContactData]);
 
     if (isLoading) {
         return (
@@ -394,290 +625,102 @@ const MyListPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="h-screen bg-gray-50 flex flex-col">
             <Header />
-            <div className="max-w-7xl mx-auto p-4">
-                <Card variant="elevated" padding="lg">
-                    <CardHeader>
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                                <h1 className="text-2xl font-semibold text-gray-900">My Contact List</h1>
-                                <p className="text-sm text-gray-600 mt-1">Available Credits: {availableCredit}</p>
-                                {parseInt(availableCredit) <= 50 && (
-                                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-md">
-                                        <XCircle size={16} className="text-red-500" />
-                                        <span className="text-sm text-red-700 font-medium">
-                                            Low Credits: {availableCredit} remaining. Need more than 50 to reveal new contacts.
-                                        </span>
-                                    </div>
-                                )}
-                                {/* Validation Summary */}
-                                {(() => {
-                                    const invalidContacts = savedContacts.filter(contact => !validateContactData(contact).isValid);
-                                    if (invalidContacts.length > 0) {
-                                        return (
-                                            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-md">
-                                                <XCircle size={16} className="text-yellow-600" />
-                                                <span className="text-sm text-yellow-700 font-medium">
-                                                    {invalidContacts.length} contact(s) have validation issues. Check contact details.
-                                                </span>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-                                <div className="flex items-center gap-3 mt-2">
-                                    {hasSelectedContacts ? (
-                                        <>
-                                            <p className="text-sm text-blue-600">
-                                                {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} selected
+            <div className="flex-1 min-h-0 p-5">
+                <Card variant="elevated" padding="none" className="h-full overflow-hidden">
+                    <div className="h-full flex flex-col">
+                        {/* Header Section - Fixed */}
+                        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <div>
+                                    <h1 className="text-2xl font-semibold text-gray-900">My Contact List</h1>
+                                    <p className="text-sm text-gray-600 mt-1">Available Credits: {availableCredit}</p>
+                                    {/* Validation Summary */}
+                                    {(() => {
+                                        const invalidContacts = savedContacts.filter(contact => !validateSavedContactData(contact).isValid);
+                                        if (invalidContacts.length > 0) {
+                                            return (
+                                                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-md">
+                                                    <XCircle size={16} className="text-yellow-600" />
+                                                    <span className="text-sm text-yellow-700 font-medium">
+                                                        {invalidContacts.length} contact(s) have validation issues. Check contact details.
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                    <div className="flex items-center gap-3 mt-2">
+                                        {hasSelectedContacts ? (
+                                            <>
+                                                <p className="text-sm text-blue-600">
+                                                    {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} selected
+                                                </p>
+                                                <button
+                                                    onClick={handleClearSelection}
+                                                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 transition-colors"
+                                                    title="Clear selection"
+                                                >
+                                                    <X size={12} />
+                                                    Clear
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-gray-500">
+                                                Use checkboxes to select contacts for export
                                             </p>
-                                            <button
-                                                onClick={handleClearSelection}
-                                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 transition-colors"
-                                                title="Clear selection"
-                                            >
-                                                <X size={12} />
-                                                Clear
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <p className="text-sm text-gray-500">
-                                            Use checkboxes to select contacts for export
-                                        </p>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                {hasSelectedContacts && (
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    {hasSelectedContacts && (
+                                        <Button
+                                            variant="primary"
+                                            size="md"
+                                            onClick={() => handleExport('selected')}
+                                            disabled={isExporting}
+                                            loading={isExporting}
+                                            icon={<Download size={16} />}
+                                        >
+                                            Export Selected ({selectedContacts.length}) Excel
+                                        </Button>
+                                    )}
                                     <Button
-                                        variant="primary"
+                                        variant={hasSelectedContacts ? "outline" : "primary"}
                                         size="md"
-                                        onClick={() => handleExport('selected')}
-                                        disabled={isExporting}
+                                        onClick={() => handleExport('all')}
+                                        disabled={savedContacts.length === 0 || isExporting}
                                         loading={isExporting}
                                         icon={<Download size={16} />}
                                     >
-                                        Export Selected ({selectedContacts.length}) Excel
+                                        Export All ({savedContacts.length}) Excel
                                     </Button>
-                                )}
-                                <Button
-                                    variant={hasSelectedContacts ? "outline" : "primary"}
-                                    size="md"
-                                    onClick={() => handleExport('all')}
-                                    disabled={savedContacts.length === 0 || isExporting}
-                                    loading={isExporting}
-                                    icon={<Download size={16} />}
-                                >
-                                    Export All ({savedContacts.length}) Excel
-                                </Button>
+                                </div>
                             </div>
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        {savedContacts.length === 0 ? (
-                            <div className="text-center py-12">
-                                <Download size={48} className="mx-auto text-gray-400 mb-4" />
-                                <p className="text-lg font-medium text-gray-900 mb-2">Your contact list is empty</p>
-                                <p className="text-gray-500">Add contacts from the main listing page</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200 bg-white">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <div className="flex items-center">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={savedContacts.length > 0 && selectedContactIds.size === savedContacts.length}
-                                                        ref={(el) => {
-                                                            if (el) {
-                                                                el.indeterminate = selectedContactIds.size > 0 && selectedContactIds.size < savedContacts.length;
-                                                            }
-                                                        }}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedContactIds(new Set(savedContacts.map(contact => contact.id || '')));
-                                                            } else {
-                                                                setSelectedContactIds(new Set());
-                                                            }
-                                                        }}
-                                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                    />
-                                                    <span className="ml-2">Select</span>
-                                                </div>
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Contact Name
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Company
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Contact Info
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Location
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Status
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {savedContacts.map((contact, index) => {
-                                            const isSelected = selectedContactIds.has(contact.id || '');
-                                            return (
-                                                <tr
-                                                    key={contact.id || index}
-                                                    className={`${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} transition-colors`}
-                                                >
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => {
-                                                                const newSet = new Set(selectedContactIds);
-                                                                if (isSelected) {
-                                                                    newSet.delete(contact.id || '');
-                                                                } else {
-                                                                    newSet.add(contact.id || '');
-                                                                }
-                                                                setSelectedContactIds(newSet);
-                                                            }}
-                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                        />
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex flex-col">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-medium text-gray-900">{contact.person_name}</span>
-                                                                <Badge
-                                                                    variant={contact.status === 'Active' ? 'success' : 'error'}
-                                                                    size="sm"
-                                                                >
-                                                                    {contact.status}
-                                                                </Badge>
-                                                                {/* Validation status indicator */}
-                                                                {(() => {
-                                                                    const validation = validateContactData(contact);
-                                                                    if (!validation.isValid) {
-                                                                        return (
-                                                                            <div
-                                                                                className="flex items-center gap-1 text-xs text-red-600"
-                                                                                title={`Validation Error: ${validation.error}`}
-                                                                            >
-                                                                                <XCircle size={12} />
-                                                                                <span>Invalid</span>
-                                                                            </div>
-                                                                        );
-                                                                    }
-                                                                    return null;
-                                                                })()}
-                                                            </div>
-                                                            <div className="text-xs text-gray-500 mt-1">
-                                                                {contact.designation} | {contact.department}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-medium text-gray-900">{contact.company_name}</span>
-                                                            {contact.company_website && (
-                                                                <a
-                                                                    href={contact.company_website}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-xs text-blue-600 hover:underline mt-1"
-                                                                >
-                                                                    {contact.company_website}
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex flex-col gap-1">
-                                                            <a
-                                                                href={`mailto:${contact.email}`}
-                                                                className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
-                                                            >
-                                                                <Mail size={14} />
-                                                                {contact.email}
-                                                            </a>
-                                                            {contact.phone_number && (
-                                                                <a
-                                                                    href={`tel:${contact.phone_number}`}
-                                                                    className="flex items-center gap-1 text-sm text-green-600 hover:underline"
-                                                                >
-                                                                    <Phone size={14} />
-                                                                    {contact.phone_number}
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm text-gray-900">
-                                                            {contact.city}, {contact.person_country}
-                                                            {contact.company_country && contact.company_country !== contact.person_country && (
-                                                                <div className="text-xs text-gray-500">Company: {contact.company_country}</div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className={`flex items-center gap-1 text-xs ${contact.is_verified === 1 ? 'text-green-600' : 'text-red-600'
-                                                            }`}>
-                                                            {contact.is_verified === 1 ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                                                            {contact.is_verified === 1 ? 'Verified' : 'Not Verified'}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center gap-2">
-                                                            {(contact.person_linkedin_url || contact.company_linkedin_url) && (
-                                                                <div className="flex flex-col gap-1">
-                                                                    {contact.person_linkedin_url && (
-                                                                        <a
-                                                                            href={contact.person_linkedin_url}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="text-xs text-blue-600 hover:underline"
-                                                                        >
-                                                                            Personal LinkedIn
-                                                                        </a>
-                                                                    )}
-                                                                    {contact.company_linkedin_url && (
-                                                                        <a
-                                                                            href={contact.company_linkedin_url}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="text-xs text-blue-600 hover:underline"
-                                                                        >
-                                                                            Company LinkedIn
-                                                                        </a>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                            {/* <button
-                                                                onClick={() => handleRemove(contact)}
-                                                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                                                                title="Remove contact"
-                                                                disabled={isExporting}
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button> */}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </CardContent>
+
+                        {/* Table Section with Scroll - Only table content scrolls */}
+                        <div className="flex-1 min-h-0">
+                            <Table
+                                data={savedContacts}
+                                columns={columns}
+                                isLoading={isLoading}
+                                sorting={sorting}
+                                onSortingChange={setSorting}
+                                enableSorting={true}
+                                enableSelection={true}
+                                selectedRows={selectedRows}
+                                onSelectionChange={handleRowSelectionChange}
+                                enablePagination={false}
+                                enableTableScroll={true}
+                                tableHeight="100%"
+                                scrollContainerRef={tableScrollRef}
+                                showScrollToTop={true}
+                                emptyStateMessage="Your contact list is empty. Add contacts from the main listing page."
+                            />
+                        </div>
+                    </div>
                 </Card>
             </div>
         </div >

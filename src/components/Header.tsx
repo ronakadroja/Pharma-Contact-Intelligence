@@ -1,12 +1,19 @@
 import { useAppContext } from "../context/AppContext";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { User, LogOut, Loader2 } from "lucide-react";
 
 const Header = () => {
-    const { coins } = useAppContext();
+    const { coins, logout, isLoggingOut } = useAppContext();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
+    };
 
     // Close menu when route changes
     useEffect(() => {
@@ -29,78 +36,145 @@ const Header = () => {
     const isActiveLink = (path: string) => location.pathname === path;
 
     return (
-        <header className="sticky top-0 z-50 bg-white shadow-md border-b border-blue-100">
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-lg border-b border-blue-200/50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
+                <div className="flex justify-between items-center h-18">
                     {/* Logo and Brand */}
                     <div className="flex-shrink-0 flex items-center">
-                        <Link to="/" className="flex items-center space-x-3 group">
-                            <div className="relative">
-                                <svg className="h-9 w-9 text-blue-600 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                        d="M19.5 5.5h-15a2 2 0 00-2 2v9a2 2 0 002 2h15a2 2 0 002-2v-9a2 2 0 00-2-2z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                        d="M12 8.5v7M8.5 12h7" />
-                                </svg>
-                                <div className="absolute inset-0 bg-blue-200/30 blur-xl rounded-full transform group-hover:scale-110 transition-transform"></div>
+                        <Link to="/" className="flex items-center space-x-4 group" aria-label="Pharma Contacts Home">
+                            <div className="relative p-2">
+                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                                    <svg className="h-7 w-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.5h-15a2 2 0 00-2 2v9a2 2 0 002 2h15a2 2 0 002-2v-9a2 2 0 00-2-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5v7M8.5 12h7" />
+                                    </svg>
+                                </div>
+                                <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-xl transform group-hover:scale-110 transition-transform duration-300"></div>
                             </div>
-                            <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-800 tracking-wide">
-                                Pharma Contacts
-                            </span>
+                            <div className="flex flex-col">
+                                <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 tracking-tight">
+                                    Pharma Contacts
+                                </span>
+                                <span className="text-xs text-gray-500 font-medium tracking-wide">
+                                    Intelligence Platform
+                                </span>
+                            </div>
                         </Link>
                     </div>
 
                     {/* Desktop Navigation */}
-                    <nav className="hidden md:flex items-center space-x-8">
+                    <nav className="hidden lg:flex items-center space-x-2" role="navigation" aria-label="Main navigation">
                         <Link
                             to="/listing"
-                            className={`transition-all duration-200 hover:text-blue-600 relative group ${isActiveLink('/listing') ? 'text-blue-600 font-medium' : 'text-gray-600'
+                            className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-300 relative group ${isActiveLink('/listing')
+                                ? 'bg-blue-50 text-blue-700 shadow-sm'
+                                : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50/50'
                                 }`}
                         >
-                            Home
-                            <span className={`absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full ${isActiveLink('/listing') ? 'w-full' : ''
-                                }`}></span>
+                            <span className="relative z-10">Home</span>
+                            {isActiveLink('/listing') && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-blue-50 rounded-xl opacity-50"></div>
+                            )}
                         </Link>
                         <Link
                             to="/my-list"
-                            className={`transition-all duration-200 hover:text-blue-600 relative group ${isActiveLink('/my-list') ? 'text-blue-600 font-medium' : 'text-gray-600'
+                            className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-300 relative group ${isActiveLink('/my-list')
+                                ? 'bg-blue-50 text-blue-700 shadow-sm'
+                                : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50/50'
                                 }`}
                         >
-                            My List
-                            <span className={`absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full ${isActiveLink('/my-list') ? 'w-full' : ''
-                                }`}></span>
+                            <span className="relative z-10">My List</span>
+                            {isActiveLink('/my-list') && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-blue-50 rounded-xl opacity-50"></div>
+                            )}
                         </Link>
-                        <div className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 rounded-full shadow-md">
-                            <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.736 6.979C9.208 6.193 9.696 6 10 6c.304 0 .792.193 1.264.979a1 1 0 001.715-1.029C12.279 4.784 11.232 4 10 4s-2.279.784-2.979 1.95c-.285.475-.507 1.002-.67 1.55H6a1 1 0 000 2h.013a9.358 9.358 0 000 1H6a1 1 0 100 2h.351c.163.548.385 1.075.67 1.55C7.721 15.216 8.768 16 10 16s2.279-.784 2.979-1.95a1 1 0 10-1.715-1.029C10.792 13.807 10.304 14 10 14c-.304 0-.792-.193-1.264-.979a1 1 0 00-1.715 1.029C7.721 15.216 8.768 16 10 16s2.279-.784 2.979-1.95c.285-.475.507-1.002.67-1.55H14a1 1 0 100-2h-.013a9.358 9.358 0 000-1H14a1 1 0 000-2h-.351c-.163-.548-.385-1.075-.67-1.55C12.279 4.784 11.232 4 10 4s-2.279.784-2.979 1.95a1 1 0 001.715 1.029z" clipRule="evenodd" />
-                            </svg>
-                            <span className="font-medium text-white">
-                                {coins.toLocaleString()} Coins
-                            </span>
+                        {/* <Link
+                            to="/profile"
+                            className={`px-4 py-2.5 rounded-xl font-medium transition-all duration-300 relative group flex items-center gap-2 ${isActiveLink('/profile')
+                                ? 'bg-blue-50 text-blue-700 shadow-sm'
+                                : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50/50'
+                                }`}
+                        >
+                            <User size={16} className="relative z-10" />
+                            <span className="relative z-10">Profile</span>
+                            {isActiveLink('/profile') && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-blue-50 rounded-xl opacity-50"></div>
+                            )}
+                        </Link> */}
+                        {/* Right Header Section */}
+                        <div className="flex items-center space-x-1 ml-4">
+                            {/* User Account Section */}
+                            <div className="flex items-center bg-gray-50 rounded-full px-4 py-2 border border-gray-200">
+                                {/* Credits Badge */}
+                                <div className="flex items-center space-x-1 mr-3">
+                                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold">$</span>
+                                    </div>
+                                    <span className="text-gray-700 font-semibold text-sm">
+                                        {coins.toLocaleString()}
+                                    </span>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="w-px h-6 bg-gray-300 mx-3"></div>
+
+                                {/* User Avatar */}
+                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <Link to="/profile">
+                                        <User size={16} className="text-white" />
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {/* Logout Button */}
+                            <button
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                                title={isLoggingOut ? 'Logging out...' : 'Logout'}
+                            >
+                                {isLoggingOut ? (
+                                    <Loader2 size={20} className="animate-spin" />
+                                ) : (
+                                    <LogOut size={20} />
+                                )}
+                            </button>
                         </div>
                     </nav>
 
-                    {/* Mobile menu button */}
-                    <button
-                        aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-                        className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors duration-200"
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    >
-                        <svg
-                            className="h-6 w-6 transition-transform duration-200 ease-in-out"
-                            style={{ transform: isMenuOpen ? 'rotate(180deg)' : 'rotate(0)' }}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                    {/* Mobile Right Section */}
+                    <div className="lg:hidden flex items-center space-x-2">
+                        {/* Mobile User Badge */}
+                        <div className="flex items-center bg-gray-100 rounded-full px-3 py-1 border">
+                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-2">
+                                <span className="text-white text-xs font-bold">$</span>
+                            </div>
+                            <span className="text-gray-700 font-medium text-xs">
+                                {coins.toLocaleString()}
+                            </span>
+                        </div>
+
+                        <button
+                            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+                            className="inline-flex items-center justify-center p-2.5 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 shadow-sm hover:shadow-md"
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
                         >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                            <svg
+                                className="h-6 w-6 transition-all duration-300 ease-in-out"
+                                style={{ transform: isMenuOpen ? 'rotate(180deg)' : 'rotate(0)' }}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                                 strokeWidth={2}
-                                d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
-                            />
-                        </svg>
-                    </button>
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+                                />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -109,41 +183,79 @@ const Header = () => {
                 {isMenuOpen && (
                     <motion.nav
                         id="mobile-menu"
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.2 }}
-                        className="md:hidden bg-white shadow-lg border-t border-blue-100"
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="lg:hidden bg-white/95 backdrop-blur-md shadow-xl border-t border-blue-200/50"
                     >
-                        <div className="px-2 pt-2 pb-3 space-y-1">
+                        <div className="px-4 pt-4 pb-6 space-y-2">
                             <Link
                                 to="/listing"
-                                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${isActiveLink('/listing')
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 ${isActiveLink('/listing')
+                                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 shadow-sm'
+                                    : 'text-gray-600 hover:bg-blue-50/70 hover:text-blue-600'
                                     }`}
                             >
                                 Home
                             </Link>
                             <Link
                                 to="/my-list"
-                                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${isActiveLink('/my-list')
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 ${isActiveLink('/my-list')
+                                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 shadow-sm'
+                                    : 'text-gray-600 hover:bg-blue-50/70 hover:text-blue-600'
                                     }`}
                             >
                                 My List
                             </Link>
-                            <div className="px-3 py-2">
-                                <div className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 rounded-full shadow-md">
-                                    <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.736 6.979C9.208 6.193 9.696 6 10 6c.304 0 .792.193 1.264.979a1 1 0 001.715-1.029C12.279 4.784 11.232 4 10 4s-2.279.784-2.979 1.95c-.285.475-.507 1.002-.67 1.55H6a1 1 0 000 2h.013a9.358 9.358 0 000 1H6a1 1 0 100 2h.351c.163.548.385 1.075.67 1.55C7.721 15.216 8.768 16 10 16s2.279-.784 2.979-1.95a1 1 0 10-1.715-1.029C10.792 13.807 10.304 14 10 14c-.304 0-.792-.193-1.264-.979a1 1 0 00-1.715 1.029C7.721 15.216 8.768 16 10 16s2.279-.784 2.979-1.95c.285-.475.507-1.002.67-1.55H14a1 1 0 100-2h-.013a9.358 9.358 0 000-1H14a1 1 0 000-2h-.351c-.163-.548-.385-1.075-.67-1.55C12.279 4.784 11.232 4 10 4s-2.279.784-2.979 1.95a1 1 0 001.715 1.029z" clipRule="evenodd" />
-                                    </svg>
-                                    <span className="font-medium text-white">
-                                        {coins.toLocaleString()} Coins
-                                    </span>
+                            {/* <Link
+                                to="/profile"
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 ${isActiveLink('/profile')
+                                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 shadow-sm'
+                                    : 'text-gray-600 hover:bg-blue-50/70 hover:text-blue-600'
+                                    }`}
+                            >
+                                <User size={18} />
+                                Profile
+                            </Link> */}
+
+                            {/* Mobile Account Section */}
+                            <div className="px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    {/* Credits */}
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                            <span className="text-white text-xs font-bold">$</span>
+                                        </div>
+                                        <span className="text-gray-700 font-semibold">
+                                            {coins.toLocaleString()} Credits
+                                        </span>
+                                    </div>
+
+                                    {/* User Avatar */}
+                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <Link to="/profile">
+                                            <User size={16} className="text-white" />
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Mobile Logout Button */}
+                            <button
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                                className="flex items-center justify-center gap-2 px-4 py-3 text-base text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 border border-gray-200"
+                            >
+                                {isLoggingOut ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : (
+                                    <LogOut size={18} />
+                                )}
+                                <span>
+                                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                                </span>
+                            </button>
                         </div>
                     </motion.nav>
                 )}

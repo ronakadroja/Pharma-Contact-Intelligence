@@ -9,39 +9,65 @@ interface ScrollToTopButtonProps {
     className?: string;
     /** Smooth scroll behavior */
     smooth?: boolean;
+    /** Container ref for custom scroll container (if not provided, uses window scroll) */
+    containerRef?: React.RefObject<HTMLElement>;
 }
 
 const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
     threshold = 300,
     className = '',
-    smooth = true
+    smooth = true,
+    containerRef
 }) => {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
         const toggleVisibility = () => {
-            if (window.pageYOffset > threshold) {
-                setIsVisible(true);
+            if (containerRef?.current) {
+                // Use container scroll
+                const scrollTop = containerRef.current.scrollTop;
+                setIsVisible(scrollTop > threshold);
             } else {
-                setIsVisible(false);
+                // Use window scroll
+                setIsVisible(window.pageYOffset > threshold);
             }
         };
 
-        window.addEventListener('scroll', toggleVisibility);
-
-        return () => {
-            window.removeEventListener('scroll', toggleVisibility);
-        };
-    }, [threshold]);
+        if (containerRef?.current) {
+            const container = containerRef.current;
+            container.addEventListener('scroll', toggleVisibility);
+            return () => {
+                container.removeEventListener('scroll', toggleVisibility);
+            };
+        } else {
+            window.addEventListener('scroll', toggleVisibility);
+            return () => {
+                window.removeEventListener('scroll', toggleVisibility);
+            };
+        }
+    }, [threshold, containerRef]);
 
     const scrollToTop = () => {
-        if (smooth) {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
+        if (containerRef?.current) {
+            // Scroll container to top
+            if (smooth) {
+                containerRef.current.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            } else {
+                containerRef.current.scrollTop = 0;
+            }
         } else {
-            window.scrollTo(0, 0);
+            // Scroll window to top
+            if (smooth) {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            } else {
+                window.scrollTo(0, 0);
+            }
         }
     };
 

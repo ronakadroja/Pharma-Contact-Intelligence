@@ -449,26 +449,15 @@ const UserManagement = () => {
 
             {/* User Creation/Edit Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-neutral-500 opacity-75 backdrop-blur-sm"></div>
-                        </div>
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                        <div className="mt-4">
-                                            <UserCreationForm
-                                                user={selectedUser}
-                                                onSuccess={handleSuccess}
-                                                onCancel={handleCloseModal}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" onClick={handleCloseModal}></div>
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+                        <div className="p-6">
+                            <UserCreationForm
+                                user={selectedUser}
+                                onSuccess={handleSuccess}
+                                onCancel={handleCloseModal}
+                            />
                         </div>
                     </div>
                 </div>

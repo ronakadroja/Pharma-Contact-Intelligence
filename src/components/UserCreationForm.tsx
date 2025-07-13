@@ -354,256 +354,271 @@ const UserCreationForm = ({ user, onSuccess, onCancel }: UserCreationFormProps) 
     };
 
     return (
-        <>
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-neutral-200 pb-4 mb-6">
+        <div className="max-h-[85vh] flex flex-col">
+            {/* Header - Fixed */}
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-neutral-900">{user ? 'Edit User' : 'Create New User'}</h2>
-                    <p className="mt-1 text-sm text-neutral-500">
-                        {user ? 'Update the user information below.' : 'Fill in the information below to create a new user account.'}
+                    <h2 className="text-lg font-semibold text-neutral-900">{user ? 'Edit User' : 'Create New User'}</h2>
+                    <p className="text-xs text-neutral-500">
+                        {user ? 'Update user information' : 'Create a new user account'}
                     </p>
                 </div>
                 <button
                     type="button"
                     onClick={handleCancel}
-                    className="p-2 text-neutral-400 hover:text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors"
+                    className="p-1.5 text-neutral-400 hover:text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors"
                 >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                 </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Basic Information */}
-                <div>
-                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Basic Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <Input
-                            type="text"
-                            id="name"
-                            name="name"
-                            label="Full Name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required
-                            placeholder="Enter full name"
-                            leftIcon={<UserIcon size={18} />}
-                            error={touched.name ? errors.name : undefined}
-                        />
-
-                        <Input
-                            type="email"
-                            id="email"
-                            name="email"
-                            label="Email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required
-                            placeholder="Enter email address"
-                            leftIcon={<Mail size={18} />}
-                            error={touched.email ? errors.email : undefined}
-                        />
-
-                        <Input
-                            type="password"
-                            id="password"
-                            name="password"
-                            label={`Password ${!user ? '*' : ''}`}
-                            value={formData.password}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required={!user}
-                            placeholder={user ? "Enter new password (optional)" : "Enter password"}
-                            hint={user ? "Leave blank to keep current password" : undefined}
-                            error={touched.password ? errors.password : undefined}
-                        />
-
-                        <Input
-                            type="tel"
-                            id="phone_number"
-                            name="phone_number"
-                            label="Phone Number"
-                            value={formData.phone_number}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required
-                            placeholder="Enter phone number"
-                            leftIcon={<Phone size={18} />}
-                            error={touched.phone_number ? errors.phone_number : undefined}
-                        />
-                    </div>
-                </div>
-
-                {/* Company Information */}
-                <div>
-                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Company Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <Input
-                            type="text"
-                            id="company"
-                            name="company"
-                            label="Company Name"
-                            value={formData.company}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required
-                            placeholder="Enter company name"
-                            error={touched.company ? errors.company : undefined}
-                        />
-                        <div className="space-y-2">
-                            <SearchableDropdown
-                                label="Country"
-                                id="country"
-                                options={countries}
-                                value={countries.find(country => country.name === formData.country)?.id || ''}
-                                onChange={handleCountryChange}
-                                placeholder="Select a country"
-                                emptyMessage="No countries found. Try a different search term."
-                                disabled={isLoading}
-                                loading={isLoadingCountries}
+            {/* Form Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-neutral-300 scrollbar-track-transparent">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Basic Information */}
+                    <div className="bg-neutral-50 rounded-lg p-4">
+                        <h3 className="text-sm font-medium text-neutral-900 mb-3">Basic Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Input
+                                type="text"
+                                id="name"
+                                name="name"
+                                label="Full Name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                required
+                                placeholder="Enter full name"
+                                leftIcon={<UserIcon size={16} />}
+                                error={touched.name ? errors.name : undefined}
                             />
 
-                            {touched.country && errors.country && (
-                                <p className="text-sm text-error-600 flex items-center gap-1 mt-1">
-                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    {errors.country}
-                                </p>
-                            )}
-                        </div>                    </div>
-                </div>
-
-                {/* Account Settings */}
-                <div>
-                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Account Settings</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="role" className="block text-sm font-medium text-neutral-700">
-                                Role <span className="text-error-500 ml-1">*</span>
-                            </label>
-                            <select
-                                id="role"
-                                name="role"
-                                value={formData.role}
+                            <Input
+                                type="email"
+                                id="email"
+                                name="email"
+                                label="Email"
+                                value={formData.email}
                                 onChange={handleChange}
                                 onBlur={handleBlur}
                                 required
-                                className={`w-full text-sm px-4 py-3 border rounded-xl bg-white hover:border-neutral-400 focus:ring-2 focus:outline-none transition-all duration-200 ${touched.role && errors.role
-                                    ? 'border-error-500 focus:border-error-500 focus:ring-error-500'
-                                    : 'border-neutral-300 focus:border-primary-500 focus:ring-primary-500'
-                                    }`}
-                            >
-                                {ROLES.map(role => (
-                                    <option key={role} value={role}>{role}</option>
-                                ))}
-                            </select>
-                            {touched.role && errors.role && (
-                                <p className="text-sm text-error-600 flex items-center gap-1">
-                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    {errors.role}
-                                </p>
-                            )}
-                        </div>
+                                placeholder="Enter email address"
+                                leftIcon={<Mail size={16} />}
+                                error={touched.email ? errors.email : undefined}
+                            />
 
-                        <Input
-                            type="number"
-                            id="credits"
-                            name="credits"
-                            label="Credits"
-                            placeholder="Enter credits"
-                            value={formData.credits}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            required
-                            min="0"
-                            error={touched.credits ? errors.credits : undefined}
-                        />
+                            <Input
+                                type="password"
+                                id="password"
+                                name="password"
+                                label={`Password ${!user ? '*' : ''}`}
+                                value={formData.password}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                required={!user}
+                                placeholder={user ? "New password (optional)" : "Enter password"}
+                                hint={user ? "Leave blank to keep current password" : undefined}
+                                error={touched.password ? errors.password : undefined}
+                            />
 
-                        <div className="space-y-2">
-                            <label htmlFor="status" className="block text-sm font-medium text-neutral-700">
-                                Status <span className="text-error-500 ml-1">*</span>
-                            </label>
-                            <select
-                                id="status"
-                                name="status"
-                                value={formData.status}
+                            <Input
+                                type="tel"
+                                id="phone_number"
+                                name="phone_number"
+                                label="Phone Number"
+                                value={formData.phone_number}
                                 onChange={handleChange}
                                 onBlur={handleBlur}
                                 required
-                                className={`w-full text-sm px-4 py-3 border rounded-xl bg-white hover:border-neutral-400 focus:ring-2 focus:outline-none transition-all duration-200 ${touched.status && errors.status
-                                    ? 'border-error-500 focus:border-error-500 focus:ring-error-500'
-                                    : 'border-neutral-300 focus:border-primary-500 focus:ring-primary-500'
-                                    }`}
-                            >
-                                {STATUS_OPTIONS.map(status => (
-                                    <option key={status} value={status}>{status}</option>
-                                ))}
-                            </select>
-                            {touched.status && errors.status && (
-                                <p className="text-sm text-error-600 flex items-center gap-1">
-                                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    {errors.status}
-                                </p>
-                            )}
+                                placeholder="Enter phone number"
+                                leftIcon={<Phone size={16} />}
+                                error={touched.phone_number ? errors.phone_number : undefined}
+                            />
                         </div>
                     </div>
-                </div>
 
-                {/* Subscription Information */}
-                <div>
-                    <h3 className="text-sm font-medium text-neutral-900 mb-4">Subscription Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <Input
-                            type="date"
-                            id="subscription_start_date"
-                            name="subscription_start_date"
-                            label="Subscription Start Date"
-                            value={formData.subscription_start_date}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            placeholder="Select start date"
-                            error={touched.subscription_start_date ? errors.subscription_start_date : undefined}
-                        />
+                    {/* Company Information */}
+                    <div className="bg-neutral-50 rounded-lg p-4">
+                        <h3 className="text-sm font-medium text-neutral-900 mb-3">Company Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Input
+                                type="text"
+                                id="company"
+                                name="company"
+                                label="Company Name"
+                                value={formData.company}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                required
+                                placeholder="Enter company name"
+                                error={touched.company ? errors.company : undefined}
+                            />
+                            <div className="space-y-2">
+                                <SearchableDropdown
+                                    label="Country"
+                                    id="country"
+                                    options={countries}
+                                    value={countries.find(country => country.name === formData.country)?.id || ''}
+                                    onChange={handleCountryChange}
+                                    placeholder="Select a country"
+                                    emptyMessage="No countries found. Try a different search term."
+                                    disabled={isLoading}
+                                    loading={isLoadingCountries}
+                                />
 
-                        <Input
-                            type="date"
-                            id="subscription_end_date"
-                            name="subscription_end_date"
-                            label="Subscription End Date"
-                            value={formData.subscription_end_date}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            placeholder="Select end date"
-                            error={touched.subscription_end_date ? errors.subscription_end_date : undefined}
-                        />
+                                {touched.country && errors.country && (
+                                    <p className="text-sm text-error-600 flex items-center gap-1 mt-1">
+                                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        {errors.country}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Form Actions */}
-                <div className="flex items-center justify-end space-x-3 pt-6 border-t border-neutral-200">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCancel}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="submit"
-                        loading={isLoading}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? 'Processing...' : (user ? 'Update User' : 'Create User')}
-                    </Button>
-                </div>
-            </form>
-        </>
+                    {/* Account Settings */}
+                    <div className="bg-neutral-50 rounded-lg p-4">
+                        <h3 className="text-sm font-medium text-neutral-900 mb-3">Account Settings</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="space-y-2">
+                                <label htmlFor="role" className="block text-sm font-medium text-neutral-700">
+                                    Role <span className="text-error-500 ml-1">*</span>
+                                </label>
+                                <select
+                                    id="role"
+                                    name="role"
+                                    value={formData.role}
+                                    onChange={handleChange}
+                                    onBlur={handleBlur}
+                                    required
+                                    className={`w-full text-sm px-4 py-3 border rounded-xl bg-white hover:border-neutral-400 focus:ring-2 focus:outline-none transition-all duration-200 ${touched.role && errors.role
+                                        ? 'border-error-500 focus:border-error-500 focus:ring-error-500'
+                                        : 'border-neutral-300 focus:border-primary-500 focus:ring-primary-500'
+                                        }`}
+                                >
+                                    {ROLES.map(role => (
+                                        <option key={role} value={role}>{role}</option>
+                                    ))}
+                                </select>
+                                {touched.role && errors.role && (
+                                    <p className="text-sm text-error-600 flex items-center gap-1">
+                                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        {errors.role}
+                                    </p>
+                                )}
+                            </div>
+
+                            <Input
+                                type="number"
+                                id="credits"
+                                name="credits"
+                                label="Credits"
+                                placeholder="Enter credits"
+                                value={formData.credits}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                required
+                                min="0"
+                                error={touched.credits ? errors.credits : undefined}
+                            />
+
+                            <div className="space-y-2">
+                                <label htmlFor="status" className="block text-sm font-medium text-neutral-700">
+                                    Status <span className="text-error-500 ml-1">*</span>
+                                </label>
+                                <select
+                                    id="status"
+                                    name="status"
+                                    value={formData.status}
+                                    onChange={handleChange}
+                                    onBlur={handleBlur}
+                                    required
+                                    className={`w-full text-sm px-4 py-3 border rounded-xl bg-white hover:border-neutral-400 focus:ring-2 focus:outline-none transition-all duration-200 ${touched.status && errors.status
+                                        ? 'border-error-500 focus:border-error-500 focus:ring-error-500'
+                                        : 'border-neutral-300 focus:border-primary-500 focus:ring-primary-500'
+                                        }`}
+                                >
+                                    {STATUS_OPTIONS.map(status => (
+                                        <option key={status} value={status}>{status}</option>
+                                    ))}
+                                </select>
+                                {touched.status && errors.status && (
+                                    <p className="text-sm text-error-600 flex items-center gap-1">
+                                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        {errors.status}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Subscription Information */}
+                    <div className="bg-neutral-50 rounded-lg p-4">
+                        <h3 className="text-sm font-medium text-neutral-900 mb-3">Subscription Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Input
+                                type="date"
+                                id="subscription_start_date"
+                                name="subscription_start_date"
+                                label="Subscription Start Date"
+                                value={formData.subscription_start_date}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Select start date"
+                                error={touched.subscription_start_date ? errors.subscription_start_date : undefined}
+                            />
+
+                            <Input
+                                type="date"
+                                id="subscription_end_date"
+                                name="subscription_end_date"
+                                label="Subscription End Date"
+                                value={formData.subscription_end_date}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Select end date"
+                                error={touched.subscription_end_date ? errors.subscription_end_date : undefined}
+                            />
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            {/* Form Actions - Fixed at bottom */}
+            <div className="flex-shrink-0 flex items-center justify-end space-x-3 pt-4 border-t border-neutral-200 mt-4">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancel}
+                    size="sm"
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    loading={isLoading}
+                    disabled={isLoading}
+                    size="sm"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        const form = document.querySelector('form');
+                        if (form) {
+                            const event = new Event('submit', { bubbles: true, cancelable: true });
+                            form.dispatchEvent(event);
+                        }
+                    }}
+                >
+                    {isLoading ? 'Processing...' : (user ? 'Update User' : 'Create User')}
+                </Button>
+            </div>
+        </div>
     );
 };
 

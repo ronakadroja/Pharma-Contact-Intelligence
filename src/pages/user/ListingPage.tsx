@@ -1,17 +1,18 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Check, CheckCircle, Filter, Loader2, Plus, X, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, CheckCircle, Filter, Linkedin, Mail, Phone, Plus, X, XCircle } from "lucide-react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { getContacts, revealContact, type Contact as APIContact } from "../../api/contacts";
+import { fetchCompanies, fetchCountries, fetchDepartments, fetchCompanyTypes, type CompanyOption } from "../../api/combo";
 import FilterPanel from "../../components/FilterPanel";
 import Header from "../../components/Header";
 import Table from "../../components/Table";
-import ScrollToTopButton from "../../components/ui/ScrollToTopButton";
+
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../context/ToastContext";
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 
 interface FilterState {
-    company_name: string[];
+    company_name: string;
     person_name: string;
     department: string;
     designation: string;
@@ -29,10 +30,10 @@ const ListingPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMoreData, setHasMoreData] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
-    const [totalItems, setTotalItems] = useState(0);
+
     const [showFilters, setShowFilters] = useState(true); // true = visible by default
     const [searchParams, setSearchParams] = useState({
-        company_name: [] as string[],
+        company_name: '',
         person_name: '',
         department: '',
         designation: '',
@@ -42,29 +43,28 @@ const ListingPage = () => {
         city: '',
     });
     const [sorting, setSorting] = useState<SortingState>([]);
+
+    // Cached dropdown data - loaded once and reused
+    const [dropdownData, setDropdownData] = useState<{
+        companies: CompanyOption[];
+        departments: CompanyOption[];
+        companyTypes: CompanyOption[];
+        countries: CompanyOption[];
+        isLoaded: boolean;
+        isLoading: boolean;
+    }>({
+        companies: [],
+        departments: [],
+        companyTypes: [],
+        countries: [],
+        isLoaded: false,
+        isLoading: false,
+    });
+
     const { showToast } = useToast();
     const { setCoins, coins } = useAppContext();
 
-    // Infinite scroll hook
-    const loadMoreContacts = async () => {
-        const nextPage = currentPage + 1;
-        setCurrentPage(nextPage);
-        await fetchContacts(nextPage, true);
-    };
-
-    const { isLoadingMore, containerRef } = useInfiniteScroll(
-        loadMoreContacts,
-        {
-            threshold: 500, // Increased threshold to trigger earlier
-            enabled: !isLoading && hasMoreData,
-            isLoading: isLoading,
-            hasMore: hasMoreData
-        }
-    );
-
-
-
-    const handleRevealContact = async (contact: APIContact) => {
+    const handleRevealContact = useCallback(async (contact: APIContact) => {
         try {
             // Check if user has sufficient credits (more than 50)
             if (coins <= 50) {
@@ -88,17 +88,33 @@ const ListingPage = () => {
             console.error('Error revealing contact:', error);
             showToast('Failed to reveal contact information', 'error');
         }
-    };
+    }, [coins, showToast, setCoins]);
 
-    const columns: ColumnDef<APIContact>[] = [
+    const columns: ColumnDef<APIContact>[] = useMemo(() => [
         {
             accessorKey: 'company_name',
             header: 'Company',
+            size: 200,
             cell: ({ row }) => (
-                <div className="group cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div className="text-sm font-medium text-gray-900">{row.original.company_name}</div>
+                <div className="min-w-0 max-w-[200px]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                            {row.original.company_name}
+                        </span>
+                        {row.original.company_linkedin_url && (
+                            <a
+                                href={row.original.company_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
+                                title="View Company LinkedIn"
+                            >
+                                <Linkedin size={14} />
+                            </a>
+                        )}
+                    </div>
                     {row.original.company_website && (
-                        <div className="text-sm text-gray-500 group-hover:text-blue-600">
+                        <div className="text-xs text-blue-600 hover:text-blue-800 transition-colors truncate">
                             {row.original.company_website}
                         </div>
                     )}
@@ -108,27 +124,35 @@ const ListingPage = () => {
         {
             accessorKey: 'person_name',
             header: 'Contact Person',
+            size: 180,
             cell: ({ row }) => (
-                <div className="group cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div className="text-sm font-semibold text-gray-900">{row.original.person_name}</div>
-                    <div className="text-sm text-gray-500">{row.original.designation}</div>
-                </div>
-            ),
-        },
-        {
-            accessorKey: 'location',
-            header: 'Location',
-            cell: ({ row }) => (
-                <div className="text-sm text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer">
-                    <span className="inline-flex items-center">
-                        {row.original.city}, {row.original.person_country}
-                    </span>
+                <div className="min-w-0 max-w-[180px]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                            {row.original.person_name}
+                        </span>
+                        {row.original.person_linkedin_url && (
+                            <a
+                                href={row.original.person_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
+                                title="View LinkedIn Profile"
+                            >
+                                <Linkedin size={14} />
+                            </a>
+                        )}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate">
+                        {row.original.designation}
+                    </div>
                 </div>
             ),
         },
         {
             accessorKey: 'contact_info',
             header: 'Contact Info',
+            size: 200,
             cell: ({ row }) => {
                 const hasEmail = row.original.email && row.original.email.trim() !== '';
                 const hasPhone = row.original.phone && row.original.phone.trim() !== '';
@@ -136,13 +160,15 @@ const ListingPage = () => {
                 // If neither email nor phone is present, show masked dummy data
                 if (!hasEmail && !hasPhone) {
                     return (
-                        <div className="text-sm text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <div className="min-w-0 max-w-[200px]">
                             <div className="space-y-1">
-                                <div className="flex items-center">
-                                    <span className="font-mono">****@*****.com</span>
+                                <div className="flex items-center gap-1">
+                                    <Mail size={12} className="text-gray-400 flex-shrink-0" />
+                                    <span className="text-xs font-mono text-gray-400 truncate">****@*****.com</span>
                                 </div>
-                                <div className="flex items-center">
-                                    <span className="text-xs font-mono">+1-***-***-****</span>
+                                <div className="flex items-center gap-1">
+                                    <Phone size={12} className="text-gray-400 flex-shrink-0" />
+                                    <span className="text-xs font-mono text-gray-400 truncate">+1-***-***-****</span>
                                 </div>
                             </div>
                         </div>
@@ -150,71 +176,50 @@ const ListingPage = () => {
                 }
 
                 return (
-                    <div className="text-sm text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer">
+                    <div className="min-w-0 max-w-[200px]">
                         <div className="space-y-1">
                             {/* Email */}
-                            <div className="flex items-center">
-                                {hasEmail ? (
-                                    <span className="text-gray-900">{row.original.email}</span>
-                                ) : (
-                                    <span className="text-gray-500 font-mono">****@*****.com</span>
-                                )}
-                            </div>
+                            {hasEmail && (
+                                <a
+                                    href={`mailto:${row.original.email}`}
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline group"
+                                    title={row.original.email}
+                                >
+                                    <Mail size={12} className="text-blue-500 flex-shrink-0" />
+                                    <span className="truncate">{row.original.email}</span>
+                                </a>
+                            )}
                             {/* Phone */}
-                            <div className="flex items-center">
-                                {hasPhone ? (
-                                    <span className="text-gray-600 text-xs">{row.original.phone}</span>
-                                ) : (
-                                    <span className="text-gray-500 text-xs font-mono">+1-***-***-****</span>
-                                )}
-                            </div>
+                            {hasPhone && (
+                                <a
+                                    href={`tel:${row.original.phone}`}
+                                    className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 hover:underline group"
+                                    title={row.original.phone}
+                                >
+                                    <Phone size={12} className="text-green-500 flex-shrink-0" />
+                                    <span className="truncate">{row.original.phone}</span>
+                                </a>
+                            )}
                         </div>
                     </div>
                 );
             },
         },
         {
-            accessorKey: 'department',
-            header: 'Department',
-            cell: ({ row }) => (
-                <div className="group cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div className="text-sm font-medium text-gray-900">{row.original.department}</div>
-                    <div className="text-sm text-gray-500">{row.original.company_type}</div>
-                </div>
-            ),
-        },
-        {
-            accessorKey: 'is_verified',
-            header: 'Verify',
-            cell: ({ row }) => {
-                const isVerified = row.original.is_verified === 1;
-                return (
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${isVerified
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-red-100 text-red-800 hover:bg-red-200'
-                        }`}>
-                        {isVerified ? (
-                            <CheckCircle size={12} className="mr-1.5" />
-                        ) : (
-                            <XCircle size={12} className="mr-1.5" />
-                        )}
-                        {isVerified ? 'Verified' : 'Not Verified'}
-                    </span>
-                );
-            },
-        },
-        {
             id: 'actions',
             header: 'Add',
+            size: 120,
             cell: ({ row }) => {
                 const hasEmail = row.original.email && row.original.email.trim() !== '';
 
                 if (hasEmail) {
                     // Show "Added" state when email exists
                     return (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 rounded-md cursor-not-allowed" title="Already added to your list">
-                            <Check size={16} />
-                            <span>Added</span>
+                        <div className="flex justify-center">
+                            <div className="inline-flex items-center gap-1 px-1 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md border border-green-200" title="Already added to your list">
+                                <Check size={12} />
+                                <span>Added</span>
+                            </div>
                         </div>
                     );
                 } else {
@@ -223,37 +228,113 @@ const ListingPage = () => {
 
                     // Show "Add" button when email doesn't exist
                     return (
-                        <button
-                            onClick={() => handleRevealContact(row.original)}
-                            disabled={hasInsufficientCredits}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 ${hasInsufficientCredits
-                                ? 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
-                                : 'text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 transform hover:scale-105 focus:ring-blue-500'
-                                }`}
-                            title={hasInsufficientCredits ? 'Insufficient credits (need more than 50)' : 'Add to your list'}
-                        >
-                            <Plus size={16} className={hasInsufficientCredits ? '' : 'transition-transform group-hover:rotate-90'} />
-                            <span>{hasInsufficientCredits ? 'Need Credits' : 'Add'}</span>
-                        </button>
+                        <div className="flex justify-center">
+                            <button
+                                onClick={() => handleRevealContact(row.original)}
+                                disabled={hasInsufficientCredits}
+                                className={`inline-flex items-center gap-1 px-1 py-1 text-xs font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-offset-1 ${hasInsufficientCredits
+                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60 border border-gray-200'
+                                    : 'text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-200 hover:border-blue-600 focus:ring-blue-500'
+                                    }`}
+                                title={hasInsufficientCredits ? 'Insufficient credits (need more than 50)' : 'Add to your list'}
+                            >
+                                <Plus size={12} />
+                                <span>{hasInsufficientCredits ? 'Credits' : 'Add'}</span>
+                            </button>
+                        </div>
                     );
                 }
             },
         },
-    ];
+        {
+            accessorKey: 'is_verified',
+            header: 'Status',
+            size: 100,
+            cell: ({ row }) => {
+                const isVerified = row.original.is_verified === 1;
+                return (
+                    <div className="flex justify-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${isVerified
+                            ? 'bg-green-100 text-green-800 border border-green-200'
+                            : 'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                            {isVerified ? (
+                                <CheckCircle size={10} className="mr-1" />
+                            ) : (
+                                <XCircle size={10} className="mr-1" />
+                            )}
+                            {isVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'location',
+            header: 'Location',
+            size: 150,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm text-gray-900 truncate" title={`${row.original.city}, ${row.original.person_country}`}>
+                        <span className="font-medium">{row.original.city}</span>
+                        {row.original.city && row.original.person_country && ', '}
+                        <span className="text-gray-600">{row.original.person_country}</span>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'department',
+            header: 'Department',
+            size: 160,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[160px]">
+                    <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
+                        {row.original.department}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate" title={row.original.company_type}>
+                        {row.original.company_type}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'company_type',
+            header: 'Country Type',
+            size: 140,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[140px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.company_type}>
+                        {row.original.company_type}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'company_country',
+            header: 'Company Country',
+            size: 150,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.company_country}>
+                        {row.original.company_country}
+                    </div>
+                </div>
+            ),
+        },
 
-    const fetchContacts = async (page: number = 1, isLoadMore: boolean = false, showSuccessToast: boolean = false) => {
+    ], [handleRevealContact, coins]);
+
+    const fetchContacts = useCallback(async (page: number = 1, isLoadMore: boolean = false, showSuccessToast: boolean = false) => {
         try {
             // Only show main loading for initial load or filter changes
             if (!isLoadMore) {
                 setIsLoading(true);
             }
 
-            // Convert arrays to comma-separated strings for API
+            // API params - company_name is already a comma-separated string from FilterPanel
             const apiParams = {
                 ...searchParams,
-                company_name: Array.isArray(searchParams.company_name)
-                    ? searchParams.company_name.join(',')
-                    : searchParams.company_name,
                 page,
                 per_page: ITEMS_PER_PAGE
             };
@@ -273,7 +354,6 @@ const ListingPage = () => {
             }
 
             // Update pagination state
-            setTotalItems(response.total);
             setHasMoreData(response.current_page < response.last_page);
 
             if (showSuccessToast) {
@@ -284,7 +364,6 @@ const ListingPage = () => {
             showToast('Failed to fetch contacts', 'error');
             if (!isLoadMore) {
                 setAllContacts([]);
-                setTotalItems(0);
                 setHasMoreData(false);
             }
         } finally {
@@ -292,7 +371,63 @@ const ListingPage = () => {
                 setIsLoading(false);
             }
         }
-    };
+    }, [searchParams, showToast]);
+
+    // Load dropdown data once when filters are first shown
+    const loadDropdownData = useCallback(async () => {
+        if (dropdownData.isLoaded || dropdownData.isLoading) {
+            return; // Already loaded or loading
+        }
+
+        setDropdownData(prev => ({ ...prev, isLoading: true }));
+
+        try {
+            const [companies, departments, companyTypes, countries] = await Promise.all([
+                fetchCompanies(),
+                fetchDepartments(),
+                fetchCompanyTypes(),
+                fetchCountries()
+            ]);
+
+            setDropdownData({
+                companies,
+                departments,
+                companyTypes,
+                countries,
+                isLoaded: true,
+                isLoading: false,
+            });
+        } catch (error) {
+            console.error('Failed to load dropdown data:', error);
+            setDropdownData(prev => ({
+                ...prev,
+                isLoading: false,
+                // Keep previous data if any, or set empty arrays
+                companies: prev.companies,
+                departments: prev.departments,
+                companyTypes: prev.companyTypes,
+                countries: prev.countries,
+            }));
+        }
+    }, [dropdownData.isLoaded, dropdownData.isLoading]);
+
+    // Infinite scroll hook
+    const loadMoreContacts = useCallback(async () => {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        await fetchContacts(nextPage, true);
+    }, [currentPage, fetchContacts]);
+
+    const { isLoadingMore, containerRef, tableScrollRef } = useInfiniteScroll(
+        loadMoreContacts,
+        {
+            threshold: 500, // Increased threshold to trigger earlier
+            enabled: !isLoading && hasMoreData,
+            isLoading: isLoading,
+            hasMore: hasMoreData,
+            useTableScroll: true
+        }
+    );
 
     // Initial fetch on mount
     useEffect(() => {
@@ -321,7 +456,14 @@ const ListingPage = () => {
         localStorage.setItem('contactsFilterVisibility', showFilters.toString());
     }, [showFilters]);
 
-    const handleFilter = (filters: FilterState) => {
+    // Load dropdown data when filters are shown for the first time
+    useEffect(() => {
+        if (showFilters && !dropdownData.isLoaded && !dropdownData.isLoading) {
+            loadDropdownData();
+        }
+    }, [showFilters, dropdownData.isLoaded, dropdownData.isLoading, loadDropdownData]);
+
+    const handleFilter = useCallback((filters: FilterState) => {
         const previousFilters = { ...searchParams };
         const newFilters = {
             company_name: filters.company_name,
@@ -336,18 +478,8 @@ const ListingPage = () => {
 
 
         // Check if filters are being cleared
-        const isClearing = Object.values(newFilters).every(value => {
-            if (Array.isArray(value)) {
-                return value.length === 0;
-            }
-            return value === '';
-        });
-        const wasFiltered = Object.values(previousFilters).some(value => {
-            if (Array.isArray(value)) {
-                return value.length > 0;
-            }
-            return value !== '';
-        });
+        const isClearing = Object.values(newFilters).every(value => value === '');
+        const wasFiltered = Object.values(previousFilters).some(value => value !== '');
 
         setSearchParams(newFilters);
 
@@ -356,34 +488,29 @@ const ListingPage = () => {
             // This will be handled by the useEffect above
         } else if (!isClearing) {
             // Filters are being applied
-            const activeFilterCount = Object.values(newFilters).filter(value => {
-                if (Array.isArray(value)) {
-                    return value.length > 0;
-                }
-                return value !== '';
-            }).length;
+            const activeFilterCount = Object.values(newFilters).filter(value => value !== '').length;
             showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`, 'success');
         }
-    };
+    }, [searchParams, showToast]);
 
     // Calculate display values for infinite scroll
 
     return (
-        <div className="min-h-screen bg-gray-50" ref={containerRef}>
+        <div className="h-screen bg-gray-50 flex flex-col overflow-hidden" ref={containerRef}>
             <Header />
 
             {/* Mobile Filter Button - Only visible on mobile */}
-            <div className="lg:hidden sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="lg:hidden flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
+                <div className="px-4 py-3">
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className="flex items-center justify-center w-full gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     >
                         <Filter size={16} />
                         <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
-                        {Object.values(searchParams).filter(Boolean).length > 0 && (
+                        {Object.values(searchParams).filter(value => value !== '').length > 0 && (
                             <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {Object.values(searchParams).filter(Boolean).length}
+                                {Object.values(searchParams).filter(value => value !== '').length}
                             </span>
                         )}
                     </button>
@@ -391,7 +518,7 @@ const ListingPage = () => {
             </div>
 
             {/* Mobile Filter Panel - Inline, not overlay */}
-            <div className={`lg:hidden transition-all duration-300 ${showFilters ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+            <div className={`lg:hidden flex-shrink-0 transition-all duration-300 ${showFilters ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
                 <div className="bg-white border-b border-gray-200 px-4 py-4">
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-lg font-medium text-gray-900">Filters</h2>
@@ -402,47 +529,32 @@ const ListingPage = () => {
                             <X size={24} />
                         </button>
                     </div>
-                    <FilterPanel onFilter={handleFilter} isMobile={true} isLoading={isLoading} />
+                    <FilterPanel onFilter={handleFilter} isMobile={true} isLoading={isLoading} dropdownData={dropdownData} />
                 </div>
             </div>
 
-            <div className="max-w-[90rem] mx-auto px-4 py-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row gap-6">
+            {/* Main Content Area - Full Height */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="h-full flex flex-col lg:flex-row">
                     {/* Sidebar with filters - Only visible on desktop when showFilters is true */}
                     {showFilters && (
-                        <div className={`hidden lg:block ${showFilters ? 'w-full lg:w-72' : '0'} flex-shrink-0 transition-all duration-300`}>
-                            <div className="sticky top-4 space-y-6">
-                                <FilterPanel onFilter={handleFilter} isMobile={false} isLoading={isLoading} />
-
-                                {/* Filter Stats */}
-                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 shadow-sm border border-blue-200">
-                                    <h3 className="text-sm font-medium text-blue-800 mb-2">Current Selection</h3>
-                                    <div className="text-sm text-blue-700">
-                                        <p className="flex items-center gap-2">
-                                            <span>Total Results:</span>
-                                            <span className="font-medium">{totalItems}</span>
-                                        </p>
-                                        <p className="flex items-center gap-2 mt-1">
-                                            <span>Loaded:</span>
-                                            <span className="font-medium">{allContacts.length}</span>
-                                            {hasMoreData && (
-                                                <span className="text-xs text-blue-600">(scroll for more)</span>
-                                            )}
-                                        </p>
-                                    </div>
-                                </div>
+                        <div className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden" style={{ width: '20%', minWidth: '250px', maxWidth: '300px' }}>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <FilterPanel onFilter={handleFilter} isMobile={false} isLoading={isLoading} dropdownData={dropdownData} />
                             </div>
                         </div>
                     )}
 
                     {/* Main content - Responsive for both desktop and mobile */}
-                    <div className="flex-1 min-w-0">
-                        <div className="bg-white rounded-lg shadow-md">
-                            <div className="border-b border-gray-200 px-6 py-4">
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+                        {/* Listing Section Container - Same styling as FilterPanel */}
+                        <div className="h-full flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 m-4">
+                            {/* Header Section */}
+                            <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 rounded-t-lg px-4 lg:px-6 py-3">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                                     <div>
-                                        <h2 className="text-xl font-semibold text-gray-900">Contacts</h2>
-                                        <p className="text-sm text-gray-500 mt-1">
+                                        <h2 className="text-lg font-semibold text-gray-900">Contacts</h2>
+                                        <p className="text-sm text-gray-500">
                                             Browse and manage your contact database
                                         </p>
                                         {coins <= 50 && (
@@ -462,71 +574,40 @@ const ListingPage = () => {
                                         >
                                             <Filter size={16} />
                                             <span>{showFilters ? 'Hide Filter' : 'Show Filter'}</span>
-                                            {Object.values(searchParams).filter(Boolean).length > 0 && (
+                                            {Object.values(searchParams).filter(value => value !== '').length > 0 && (
                                                 <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {Object.values(searchParams).filter(Boolean).length}
+                                                    {Object.values(searchParams).filter(value => value !== '').length}
                                                 </span>
                                             )}
                                         </button>
-
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="overflow-x-auto">
-                                <div className="inline-block min-w-full align-middle">
-                                    <div className="overflow-hidden">
-                                        <Table
-                                            data={allContacts}
-                                            columns={columns}
-                                            isLoading={isLoading}
-                                            sorting={sorting}
-                                            onSortingChange={setSorting}
-                                            enableSorting={true}
-                                            enablePagination={false}
-                                            emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
-                                        />
-                                    </div>
-                                </div>
+                            {/* Table Section - Full Height */}
+                            <div className="flex-1 min-h-0 relative bg-white rounded-b-lg overflow-hidden">
+                                <Table
+                                    data={allContacts}
+                                    columns={columns}
+                                    isLoading={isLoading}
+                                    sorting={sorting}
+                                    onSortingChange={setSorting}
+                                    enableSorting={true}
+                                    enablePagination={false}
+                                    enableTableScroll={true}
+                                    tableHeight="100%"
+                                    scrollContainerRef={tableScrollRef}
+                                    isLoadingMore={isLoadingMore}
+                                    showScrollToTop={true}
+                                    emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
+                                />
                             </div>
 
-                            {/* Infinite scroll loading indicator */}
-                            {isLoadingMore && (
-                                <div className="border-t border-gray-200 px-6 py-6">
-                                    <div className="flex items-center justify-center">
-                                        <div className="flex items-center gap-3 text-gray-600">
-                                            <Loader2 size={20} className="animate-spin" />
-                                            <span className="text-sm font-medium">Loading more contacts...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* Status information */}
-                            {!isLoading && allContacts.length > 0 && (
-                                <div className="border-t border-gray-200 px-6 py-4">
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                        <div className="text-sm text-gray-700">
-                                            Showing {allContacts.length} of {totalItems} contacts
-                                            {!hasMoreData && allContacts.length > ITEMS_PER_PAGE && (
-                                                <span className="ml-2 text-gray-500">(All contacts loaded)</span>
-                                            )}
-                                        </div>
-                                        {hasMoreData && (
-                                            <div className="text-sm text-gray-500">
-                                                Scroll down to load more contacts
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* Scroll to top button */}
-            <ScrollToTopButton threshold={300} />
         </div>
     );
 };
