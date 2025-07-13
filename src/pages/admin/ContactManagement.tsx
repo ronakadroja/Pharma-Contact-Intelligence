@@ -839,19 +839,15 @@ const ContactManagement = () => {
 
             {/* Add/Edit Contact Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-neutral-500 opacity-75 backdrop-blur-sm"></div>
-                        </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-neutral-500/75 backdrop-blur-sm" aria-hidden="true" onClick={() => setShowModal(false)}></div>
 
-                        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-                            <ContactForm
-                                contact={selectedContact}
-                                onSuccess={handleFormSuccess}
-                                onCancel={() => setShowModal(false)}
-                            />
-                        </div>
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] max-h-[90vh] overflow-hidden">
+                        <ContactForm
+                            contact={selectedContact}
+                            onSuccess={handleFormSuccess}
+                            onCancel={() => setShowModal(false)}
+                        />
                     </div>
                 </div>
             )}
