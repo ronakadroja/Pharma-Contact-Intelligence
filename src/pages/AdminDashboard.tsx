@@ -1,7 +1,6 @@
-import { Contact2, CreditCard, Users, ArrowRight } from 'lucide-react';
+import { ArrowRight, Contact2, CreditCard, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/design-system';
-import ToastDemo from '../components/ToastDemo';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -131,9 +130,6 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
             </div>
-
-            {/* Toast Demo Section
-            <ToastDemo /> */}
         </div>
     );
 };

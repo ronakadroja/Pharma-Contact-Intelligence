@@ -42,7 +42,7 @@ export interface ContactsResponse {
 }
 
 export interface ContactSearchParams {
-    company_name?: string;
+    company_id?: number;
     person_name?: string;
     department?: string;
     designation?: string;

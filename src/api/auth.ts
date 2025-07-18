@@ -44,14 +44,19 @@ export const createUser = async (userData: CreateUserPayload): Promise<CreateUse
     }
 };
 
-export const getUsers = async (page: number = 1, perPage: number = 10): Promise<UsersResponse> => {
+export const getUsers = async (page: number = 1, perPage: number = 10, search: string = ''): Promise<UsersResponse> => {
     try {
-        const response = await api.get<UsersResponse>(getUserUrl('BASE'), {
-            params: {
-                page,
-                per_page: perPage
-            }
-        });
+        const params: { page: number; per_page: number; search?: string } = {
+            page,
+            per_page: perPage
+        };
+
+        // Add search parameter if provided
+        if (search && search.trim() !== '') {
+            params.search = search.trim();
+        }
+
+        const response = await api.get<UsersResponse>(getUserUrl('BASE'), { params });
         // Return the paginated response data
         return response;
     } catch (error) {

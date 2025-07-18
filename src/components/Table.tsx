@@ -91,7 +91,7 @@ function Table<T>({
                     className="overflow-y-auto overflow-x-auto w-full h-full"
                     style={{ maxWidth: '100%' }}
                 >
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '800px' }}>
+                    <table className="w-full divide-y divide-gray-200" style={{ width: '100%' }}>
                         <thead
                             className="bg-gray-50 sticky top-0 z-50 shadow-sm border-b border-gray-200"
                             style={{

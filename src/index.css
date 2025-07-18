@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global styles to prevent page scroll */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 /* Hidden scrollbar for filter panel */
 .filter-scroll-container {
     scrollbar-width: none;

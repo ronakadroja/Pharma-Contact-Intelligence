@@ -8,9 +8,10 @@ import { format } from 'date-fns';
 import {
     Download,
     PencilIcon,
-    Plus
+    Plus,
+    Search
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CSVLink } from 'react-csv';
 import { deleteUser, getUsers, updateUserStatus } from '../../api/auth';
 import Pagination from '../../components/Pagination';
@@ -34,6 +35,8 @@ const UserManagement = () => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [selectedRows, setSelectedRows] = useState<RowSelectionState>({});
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('');
     // const [showFilters, setShowFilters] = useState(false);
     // const [roleFilter, setRoleFilter] = useState<string>('all');
     // const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -45,6 +48,15 @@ const UserManagement = () => {
     const [perPage, setPerPage] = useState(ITEMS_PER_PAGE);
 
     const { success, error: showError } = useToast();
+
+    // Debounce search query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500); // 500ms delay
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const columns = useMemo<ColumnDef<User, any>[]>(
         () => [
@@ -105,7 +117,7 @@ const UserManagement = () => {
                 id: 'actions',
                 header: 'Actions',
                 cell: ({ row }) => (
-                    <div className="  space-x-2 text-center">
+                    <div className="flex justify-content-between align-center space-x-2 text-center">
                         <button
                             onClick={() => handleEditUser(row.original)}
                             className="text-blue-600 hover:text-blue-900 focus:outline-none"
@@ -125,11 +137,11 @@ const UserManagement = () => {
         []
     );
 
-    const fetchUsers = async (page: number = currentPage) => {
+    const fetchUsers = useCallback(async (page: number = currentPage, search: string = debouncedSearchQuery) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await getUsers(page, perPage);
+            const response = await getUsers(page, perPage, search);
             const paginationData = response.data;
 
             const usersWithStatus: User[] = paginationData.data.map(user => ({
@@ -146,15 +158,30 @@ const UserManagement = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [currentPage, perPage, debouncedSearchQuery]);
 
+    // Initial load
     useEffect(() => {
         fetchUsers(1); // Always start from page 1 on initial load
-    }, []);
+    }, [fetchUsers]);
+
+    // Trigger search when debounced query changes
+    useEffect(() => {
+        if (debouncedSearchQuery !== searchQuery) {
+            // Only trigger if this is a search change, not initial load
+            setCurrentPage(1);
+            fetchUsers(1, debouncedSearchQuery);
+        }
+    }, [debouncedSearchQuery, fetchUsers, searchQuery]);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
         fetchUsers(page);
+    };
+
+    const handleSearch = (query: string) => {
+        setSearchQuery(query);
+        // The debounced effect will handle the API call
     };
 
     // const handleDeleteUser = async (id: string) => {
@@ -275,38 +302,8 @@ const UserManagement = () => {
                 </div>
             </Card>
 
-            {/* Search and Filter Section */}
-            {/* <Card variant="elevated" padding="none"> */}
-            {/* <div className="p-6 border-b border-neutral-200">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
-                            <Input
-                                type="text"
-                                value={globalFilter || ''}
-                                onChange={e => setGlobalFilter(e.target.value)}
-                                placeholder="Search users..."
-                                leftIcon={<Search className="h-5 w-5" />}
-                            />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowFilters(!showFilters)}
-                                icon={<Filter className="h-4 w-4" />}
-                            >
-                                Filters
-                                {(roleFilter !== 'all' || statusFilter !== 'all') && (
-                                    <Badge variant="primary" size="sm" className="ml-2">
-                                        {[
-                                            roleFilter !== 'all' && 'Role',
-                                            statusFilter !== 'all' && 'Status'
-                                        ].filter(Boolean).length}
-                                    </Badge>
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                </div> */}
+
+
 
             {/* Filter Panel */}
             {/* {showFilters && (
@@ -342,31 +339,54 @@ const UserManagement = () => {
             {/* </Card> */}
 
             {/* Table Section */}
-            <Card variant="elevated" padding="none" className="overflow-hidden">
+            <Card variant="elevated" padding="none" className="overflow-hidden" style={{ height: 'calc(100vh - 180px)' }}>
+                {/* Search and Filter Header */}
+                <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                        <div className="flex-1 max-w-md">
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    placeholder="Search users by name, email, or company..."
+                                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200"
+                                />
+                            </div>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            {totalItems > 0 ? `${totalItems.toLocaleString()} total users` : 'No users found'}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Bulk Actions - Desktop */}
                 <div className="hidden sm:block">
                     {Object.keys(selectedRows).filter(id => selectedRows[id]).length > 0 && (
-                        <div className="bg-neutral-50 px-6 py-4 border-b border-neutral-200">
+                        <div className="bg-blue-50 px-6 py-4 border-b border-blue-200">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-700">
+                                <span className="text-sm font-medium text-blue-700">
                                     {Object.keys(selectedRows).filter(id => selectedRows[id]).length} users selected
                                 </span>
                                 <div className="flex items-center space-x-3">
                                     <button
                                         onClick={() => handleBulkStatusChange('Active')}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                                     >
                                         Activate
                                     </button>
                                     <button
                                         onClick={() => handleBulkStatusChange('Deactive')}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
                                     >
                                         Deactivate
                                     </button>
                                     <button
                                         onClick={handleBulkDelete}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-lg text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                                     >
                                         Delete
                                     </button>
@@ -379,27 +399,27 @@ const UserManagement = () => {
                 {/* Bulk Actions - Mobile */}
                 <div className="sm:hidden">
                     {Object.keys(selectedRows).filter(id => selectedRows[id]).length > 0 && (
-                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <div className="bg-blue-50 px-4 py-3 border-b border-blue-200">
                             <div className="flex flex-col gap-3">
-                                <span className="text-sm text-gray-700">
+                                <span className="text-sm font-medium text-blue-700">
                                     {Object.keys(selectedRows).filter(id => selectedRows[id]).length} users selected
                                 </span>
                                 <div className="flex flex-col gap-2">
                                     <button
                                         onClick={() => handleBulkStatusChange('Active')}
-                                        className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                        className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                                     >
                                         Activate
                                     </button>
                                     <button
                                         onClick={() => handleBulkStatusChange('Deactive')}
-                                        className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                                        className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
                                     >
                                         Deactivate
                                     </button>
                                     <button
                                         onClick={handleBulkDelete}
-                                        className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                        className="w-full inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                                     >
                                         Delete
                                     </button>
@@ -410,22 +430,20 @@ const UserManagement = () => {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto">
-                    <div className="inline-block min-w-full align-middle">
-                        <div className="overflow-hidden border-b border-gray-200">
-                            <Table
-                                data={users}
-                                columns={columns}
-                                isLoading={isLoading}
-                                sorting={sorting}
-                                onSortingChange={setSorting}
-                                enableSelection={true}
-                                selectedRows={selectedRows}
-                                onSelectionChange={setSelectedRows}
-                                emptyStateMessage={error || "No users found"}
-                            />
-                        </div>
-                    </div>
+                <div className="flex-1 min-h-0">
+                    <Table
+                        data={users}
+                        columns={columns}
+                        isLoading={isLoading}
+                        sorting={sorting}
+                        onSortingChange={setSorting}
+                        enableSelection={true}
+                        selectedRows={selectedRows}
+                        onSelectionChange={setSelectedRows}
+                        enableTableScroll={true}
+                        tableHeight="calc(100vh - 365px)"
+                        emptyStateMessage={error || "No users found"}
+                    />
                 </div>
 
                 {/* Pagination */}
@@ -448,21 +466,23 @@ const UserManagement = () => {
             </Card>
 
             {/* User Creation/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" onClick={handleCloseModal}></div>
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-                        <div className="p-6">
-                            <UserCreationForm
-                                user={selectedUser}
-                                onSuccess={handleSuccess}
-                                onCancel={handleCloseModal}
-                            />
+            {
+                showModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" onClick={handleCloseModal}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+                            <div className="p-6">
+                                <UserCreationForm
+                                    user={selectedUser}
+                                    onSuccess={handleSuccess}
+                                    onCancel={handleCloseModal}
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

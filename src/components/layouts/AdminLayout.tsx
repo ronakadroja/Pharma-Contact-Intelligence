@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
@@ -12,7 +12,9 @@ import {
     BarChart2,
     Upload,
     ChevronRight,
-    Loader2
+    Loader2,
+    PanelLeftClose,
+    PanelLeftOpen
 } from 'lucide-react';
 import { motion, AnimatePresence, easeInOut } from 'framer-motion';
 import type { Variants } from 'framer-motion';
@@ -49,10 +51,16 @@ const menuItemVariants: Variants = {
 
 const AdminLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const { user, logout, isLoggingOut } = useAppContext();
     const navigate = useNavigate();
     const location = useLocation();
     const sidebarRef = useRef<HTMLDivElement>(null);
+
+    // Toggle function for sidebar collapse
+    const handleSidebarToggle = useCallback(() => {
+        setSidebarCollapsed(!sidebarCollapsed);
+    }, [sidebarCollapsed]);
 
     // Spring animation for the sidebar
     const [{ x }, api] = useSpring(() => ({ x: -320 }));
@@ -98,6 +106,21 @@ const AdminLayout = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [sidebarOpen]);
+
+    // Keyboard shortcut for sidebar toggle (Ctrl/Cmd + B)
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+                event.preventDefault();
+                handleSidebarToggle();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleSidebarToggle]);
 
     // Update spring animation when sidebar state changes
     useEffect(() => {
@@ -193,48 +216,145 @@ const AdminLayout = () => {
             </AnimatePresence>
 
             {/* Static sidebar for desktop */}
-            <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
+            <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
+                }`}>
                 <div className="flex-1 flex flex-col min-h-0 bg-white border-r border-neutral-200 shadow-soft">
                     <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-                        <div className="flex items-center flex-shrink-0 px-4">
-                            <div className="flex items-center gap-3">
+                        <div className={`flex items-center flex-shrink-0 ${sidebarCollapsed ? 'px-2 justify-center' : 'px-4'}`}>
+                            <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                                 <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center shadow-glow">
                                     <span className="text-lg font-bold text-white">A</span>
                                 </div>
-                                <span className="text-xl font-bold text-neutral-900">Admin Panel</span>
+                                {!sidebarCollapsed && (
+                                    <span className="text-xl font-bold text-neutral-900">Admin Panel</span>
+                                )}
                             </div>
+                        </div>
+
+                        {/* Fancy Toggle Button */}
+                        <div className="relative mt-6 mb-4">
+                            <div className={`${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
+                                <button
+                                    onClick={handleSidebarToggle}
+                                    className={`
+                                        relative w-full group overflow-hidden
+                                        ${sidebarCollapsed
+                                            ? 'h-10 w-10 mx-auto rounded-full'
+                                            : 'h-10 rounded-xl px-3'
+                                        }
+                                        bg-gradient-to-r from-primary-50 to-primary-100
+                                        hover:from-primary-100 hover:to-primary-200
+                                        border border-primary-200 hover:border-primary-300
+                                        shadow-sm hover:shadow-md
+                                        transition-all duration-300 ease-in-out
+                                        transform hover:scale-105 active:scale-95
+                                        focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+                                    `}
+                                    title={`${sidebarCollapsed ? 'Expand' : 'Collapse'} Sidebar (Ctrl+B)`}
+                                >
+                                    {/* Background animation */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-primary-600/0 via-primary-600/5 to-primary-600/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+
+                                    {/* Content */}
+                                    <div className="relative flex items-center justify-center text-primary-700 group-hover:text-primary-800">
+                                        {sidebarCollapsed ? (
+                                            <PanelLeftOpen className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
+                                        ) : (
+                                            <>
+                                                <PanelLeftClose className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
+                                                <span className="text-sm font-semibold tracking-wide">Collapse</span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Subtle glow effect */}
+                                    <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-primary-400/20 blur-xl transition-opacity duration-300" />
+                                </button>
+                            </div>
+
+                            {/* Decorative line */}
+                            {!sidebarCollapsed && (
+                                <div className="mt-4 mx-4 h-px bg-gradient-to-r from-transparent via-neutral-200 to-transparent" />
+                            )}
                         </div>
                         <nav className="mt-5 flex-1 px-2 space-y-1">
                             {navigation.map((item) => {
                                 const isActive = location.pathname === item.href;
                                 return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        className={classNames(
-                                            isActive
-                                                ? 'bg-primary-50 text-primary-600 border-r-2 border-primary-600'
-                                                : 'text-neutral-600 hover:bg-neutral-50 hover:text-primary-600',
-                                            'group flex items-center px-2 py-2 text-sm font-medium rounded-xl transition-all duration-200'
-                                        )}
-                                    >
-                                        <item.icon
+                                    <div key={item.name} className="relative group">
+                                        <Link
+                                            to={item.href}
                                             className={classNames(
-                                                isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
-                                                'mr-3 flex-shrink-0 h-6 w-6 transition-colors duration-200'
+                                                isActive
+                                                    ? 'bg-primary-50 text-primary-600 border-r-2 border-primary-600'
+                                                    : 'text-neutral-600 hover:bg-neutral-50 hover:text-primary-600',
+                                                'group flex items-center px-2 py-2 text-sm font-medium rounded-xl transition-all duration-200',
+                                                sidebarCollapsed ? 'justify-center' : ''
                                             )}
-                                        />
-                                        {item.name}
-                                    </Link>
+                                            title={sidebarCollapsed ? item.name : ''}
+                                        >
+                                            <item.icon
+                                                className={classNames(
+                                                    isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
+                                                    'flex-shrink-0 h-6 w-6 transition-colors duration-200',
+                                                    sidebarCollapsed ? '' : 'mr-3'
+                                                )}
+                                            />
+                                            {!sidebarCollapsed && item.name}
+                                        </Link>
+
+                                        {/* Tooltip for collapsed state */}
+                                        {sidebarCollapsed && (
+                                            <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-neutral-800 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                                {item.name}
+                                                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-800 rotate-45"></div>
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </nav>
                     </div>
                 </div>
+
+                {/* Floating Edge Toggle Button */}
+                <button
+                    onClick={handleSidebarToggle}
+                    className={`
+                        absolute top-1/2 -translate-y-1/2 z-50
+                        -right-3
+                        w-6 h-12
+                        bg-white hover:bg-primary-50
+                        border border-neutral-200 hover:border-primary-300
+                        rounded-r-lg shadow-lg hover:shadow-xl
+                        flex items-center justify-center
+                        transition-all duration-300 ease-in-out
+                        transform hover:scale-110 active:scale-95
+                        focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+                        group overflow-hidden
+                    `}
+                    title={`${sidebarCollapsed ? 'Expand' : 'Collapse'} Sidebar (Ctrl+B)`}
+                >
+                    {/* Animated background */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-primary-500/0 via-primary-500/10 to-primary-500/0 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-500" />
+
+                    {/* Icon with rotation animation */}
+                    <div className="relative">
+                        {sidebarCollapsed ? (
+                            <ChevronRight className="h-3 w-3 text-neutral-600 group-hover:text-primary-600 transition-all duration-200 transform group-hover:scale-125" />
+                        ) : (
+                            <PanelLeftClose className="h-3 w-3 text-neutral-600 group-hover:text-primary-600 transition-all duration-200 transform group-hover:scale-125 group-hover:rotate-180" />
+                        )}
+                    </div>
+
+                    {/* Pulse effect on hover */}
+                    <div className="absolute inset-0 rounded-r-lg bg-primary-400/20 scale-0 group-hover:scale-100 transition-transform duration-300" />
+                </button>
             </div>
 
             {/* Main content */}
-            <div className="lg:pl-64 flex flex-col flex-1">
+            <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'
+                }`}>
                 <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow-soft border-b border-neutral-200">
                     <button
                         type="button"
@@ -249,6 +369,21 @@ const AdminLayout = () => {
                             <div className="flex items-center text-neutral-600">
                                 <Badge variant="outline" size="sm">Admin</Badge>
                                 <ChevronRight className="h-4 w-4 mx-2 text-neutral-400" />
+
+                                {/* Sidebar State Indicator */}
+                                <div className="hidden lg:flex items-center mr-3">
+                                    <div className={`
+                                        w-2 h-2 rounded-full transition-all duration-300
+                                        ${sidebarCollapsed
+                                            ? 'bg-amber-400 shadow-amber-400/50'
+                                            : 'bg-emerald-400 shadow-emerald-400/50'
+                                        } shadow-lg
+                                    `} />
+                                    <span className="ml-2 text-xs text-neutral-500 font-medium">
+                                        {sidebarCollapsed ? 'Compact' : 'Expanded'}
+                                    </span>
+                                </div>
+
                                 <div className="group relative">
                                     <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900 truncate max-w-[200px] sm:max-w-md">
                                         {pageTitle}

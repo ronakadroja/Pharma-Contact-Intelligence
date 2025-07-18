@@ -1,6 +1,7 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Download, Filter, Linkedin, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { CheckCircle, Filter, Linkedin, Pencil, Plus, Search, Trash2, Upload, X, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Multiselect from 'multiselect-react-dropdown';
 import {
     bulkImportContacts,
     deleteContact,
@@ -8,96 +9,79 @@ import {
     updateContactStatus,
     type Contact
 } from '../../api/contacts';
+import { fetchCompanies, fetchCountries, fetchDepartments, type CompanyOption } from '../../api/combo';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import ContactForm from '../../components/ContactForm';
 import Table from "../../components/Table";
-import { Badge, Button, Card, Input } from '../../components/ui/design-system';
-import ScrollToTopButton from "../../components/ui/ScrollToTopButton";
+import { Button } from '../../components/ui/design-system';
 import { useToast } from '../../context/ToastContext';
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 
-interface ContactFormData {
-    companyName: string;
-    personName: string;
-    email: string;
-    mobile?: string;
-    country: string;
-    city?: string;
-    department: string;
-    designation: string;
-}
-
+const ITEMS_PER_PAGE = 10;
 
 const ContactManagement = () => {
     // Infinite scroll state management
     const [allContacts, setAllContacts] = useState<Contact[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMoreData, setHasMoreData] = useState(true);
-    const [loading, setLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
     const [totalItems, setTotalItems] = useState(0);
-    const [searchParams, setSearchParams] = useState({
-        company_name: '',
-        designation: '',
-        person_country: '',
-        city: ''
-    });
+
     const [showModal, setShowModal] = useState(false);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
     const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
-    const [formData, setFormData] = useState<ContactFormData>({
-        companyName: '',
-        personName: '',
-        email: '',
-        mobile: '',
-        country: '',
-        city: '',
-        department: '',
-        designation: '',
-    });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
-    const { success, error: showError } = useToast();
+    const { showToast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [error, setError] = useState<string | null>(null);
     const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
     const [showBulkStatusConfirmation, setShowBulkStatusConfirmation] = useState(false);
     const [bulkStatusToSet, setBulkStatusToSet] = useState<'Active' | 'Inactive' | null>(null);
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-    // Infinite scroll hook
-    const loadMoreContacts = async () => {
-        const nextPage = currentPage + 1;
-        setCurrentPage(nextPage);
-        await fetchContacts(nextPage, false, true);
-    };
+    // Filter state - Updated for multiselect
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState({
+        company_id: [] as string[], // This will store company IDs
+        department: [] as string[],
+        person_country: [] as string[]
+    });
+    // Combo data state
+    const [dropdownData, setDropdownData] = useState<{
+        companies: CompanyOption[];
+        departments: CompanyOption[];
+        countries: CompanyOption[];
+        isLoaded: boolean;
+        isLoading: boolean;
+    }>({
+        companies: [],
+        departments: [],
+        countries: [],
+        isLoaded: false,
+        isLoading: false
+    });
 
-    const { isLoadingMore, containerRef } = useInfiniteScroll(
-        loadMoreContacts,
-        {
-            threshold: 500, // Increased threshold to trigger earlier
-            enabled: !loading && hasMoreData,
-            isLoading: loading,
-            hasMore: hasMoreData
-        }
-    );
 
 
 
-    const columns: ColumnDef<Contact>[] = [
+
+    const columns: ColumnDef<Contact>[] = useMemo(() => [
         {
             accessorKey: 'company_name',
             header: 'Company',
+            size: 200,
             cell: ({ row }) => (
-                <div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">{row.original.company_name}</span>
+                <div className="min-w-0 max-w-[200px]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                            {row.original.company_name}
+                        </span>
                         {row.original.company_linkedin_url && (
                             <a
                                 href={row.original.company_linkedin_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                className="text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
                                 title="View Company LinkedIn"
                             >
                                 <Linkedin size={14} />
@@ -105,7 +89,9 @@ const ContactManagement = () => {
                         )}
                     </div>
                     {row.original.company_website && (
-                        <div className="text-sm text-gray-500">{row.original.company_website}</div>
+                        <div className="text-xs text-blue-600 hover:text-blue-800 transition-colors truncate">
+                            {row.original.company_website}
+                        </div>
                     )}
                 </div>
             ),
@@ -113,92 +99,143 @@ const ContactManagement = () => {
         {
             accessorKey: 'person_name',
             header: 'Contact Person',
+            size: 180,
             cell: ({ row }) => (
-                <div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-900">{row.original.person_name}</span>
+                <div className="min-w-0 max-w-[180px]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                            {row.original.person_name}
+                        </span>
                         {row.original.person_linkedin_url && (
                             <a
                                 href={row.original.person_linkedin_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                className="text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
                                 title="View LinkedIn Profile"
                             >
                                 <Linkedin size={14} />
                             </a>
                         )}
                     </div>
-                    <div className="text-sm text-gray-500">{row.original.designation}</div>
+                    <div className="text-xs text-gray-600 truncate">
+                        {row.original.designation}
+                    </div>
                 </div>
             ),
+        },
+
+        {
+            accessorKey: 'is_verified',
+            header: 'Status',
+            size: 100,
+            cell: ({ row }) => {
+                const isVerified = row.original.is_verified === 1;
+                return (
+                    <div className="flex justify-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${isVerified
+                            ? 'bg-green-100 text-green-800 border border-green-200'
+                            : 'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                            {isVerified ? (
+                                <CheckCircle size={10} className="mr-1" />
+                            ) : (
+                                <XCircle size={10} className="mr-1" />
+                            )}
+                            {isVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'location',
             header: 'Location',
+            size: 150,
             cell: ({ row }) => (
-                <div className="text-sm text-gray-900">
-                    {row.original.city}, {row.original.person_country}
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm text-gray-900 truncate" title={`${row.original.city}, ${row.original.person_country}`}>
+                        <span className="font-medium">{row.original.city}</span>
+                        {row.original.city && row.original.person_country && ', '}
+                        <span className="text-gray-600">{row.original.person_country}</span>
+                    </div>
                 </div>
             ),
         },
         {
             accessorKey: 'department',
             header: 'Department',
+            size: 160,
             cell: ({ row }) => (
-                <div>
-                    <div className="text-sm text-gray-900">{row.original.department}</div>
-                    <div className="text-sm text-gray-500">{row.original.company_type}</div>
+                <div className="min-w-0 max-w-[160px]">
+                    <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
+                        {row.original.department}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate" title={row.original.company_type}>
+                        {row.original.company_type}
+                    </div>
                 </div>
             ),
         },
         {
-            accessorKey: 'status',
-            header: 'Status',
+            accessorKey: 'company_type',
+            header: 'Country Type',
+            size: 140,
             cell: ({ row }) => (
-                <Badge variant={row.original.status === 'Active' ? 'success' : 'error'} size="sm">
-                    {row.original.status}
-                </Badge>
+                <div className="min-w-0 max-w-[140px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.company_type}>
+                        {row.original.company_type}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'company_country',
+            header: 'Company Country',
+            size: 150,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.company_country}>
+                        {row.original.company_country}
+                    </div>
+                </div>
             ),
         },
         {
             id: 'actions',
             header: 'Actions',
+            size: 120,
             cell: ({ row }) => (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-center space-x-2">
                     <button
                         onClick={() => handleEditContact(row.original)}
                         className="text-blue-600 hover:text-blue-800"
+                        title="Edit contact"
                     >
                         <Pencil className="h-4 w-4" />
                     </button>
                     <button
                         onClick={() => handleDeleteClick(row.original)}
                         className="text-red-600 hover:text-red-800"
+                        title="Delete contact"
                     >
                         <Trash2 className="h-4 w-4" />
                     </button>
                 </div>
             ),
         },
-    ];
+    ], []);
 
-    const fetchContacts = async (page: number = 1, resetFilters: boolean = false, isLoadMore: boolean = false) => {
+    const fetchContacts = useCallback(async (page: number = 1, isLoadMore: boolean = false, showSuccessToast: boolean = false) => {
         try {
             // Only show main loading for initial load or filter changes
             if (!isLoadMore) {
-                setLoading(true);
+                setIsLoading(true);
             }
-            setError(null);
-
-            const searchParamsToSend = Object.fromEntries(
-                Object.entries(resetFilters ? {} : searchParams).filter(([_, value]) => value && value.trim() !== '')
-            );
 
             const response = await getContacts({
-                ...searchParamsToSend,
                 page,
-                per_page: 10
+                per_page: ITEMS_PER_PAGE
             });
 
             // Handle cumulative data for infinite scroll
@@ -215,22 +252,12 @@ const ContactManagement = () => {
             setTotalItems(response.total);
             setHasMoreData(response.current_page < response.last_page);
 
+            if (showSuccessToast) {
+                showToast('Contact data loaded successfully', 'success');
+            }
         } catch (error) {
             console.error('Error fetching contacts:', error);
-            let errorMessage = 'Failed to fetch contacts';
-
-            if (error && typeof error === 'object' && 'response' in error) {
-                const responseError = error as { response?: { status: number; data?: any } };
-                if (responseError.response?.status === 422) {
-                    errorMessage = 'Invalid search parameters. Please check your input.';
-                }
-            }
-
-            showError(errorMessage, {
-                title: 'Search Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
-            setError(errorMessage);
+            showToast('Failed to fetch contacts', 'error');
             if (!isLoadMore) {
                 setAllContacts([]);
                 setTotalItems(0);
@@ -238,58 +265,155 @@ const ContactManagement = () => {
             }
         } finally {
             if (!isLoadMore) {
-                setLoading(false);
+                setIsLoading(false);
             }
         }
-    };
+    }, [showToast]);
+
+    // Load combo data for dropdowns
+    const loadComboData = useCallback(async () => {
+        if (dropdownData.isLoaded || dropdownData.isLoading) return;
+
+        console.log('Loading combo data...');
+        setDropdownData(prev => ({ ...prev, isLoading: true }));
+
+        try {
+            const [companiesResponse, departmentsResponse, countriesResponse] = await Promise.all([
+                fetchCompanies(),
+                fetchDepartments(),
+                fetchCountries()
+            ]);
+
+            setDropdownData({
+                companies: companiesResponse || [],
+                departments: departmentsResponse || [],
+                countries: countriesResponse || [],
+                isLoaded: true,
+                isLoading: false
+            });
+        } catch (error) {
+            console.error('Failed to load combo data:', error);
+            showToast('Failed to load filter options. Please try again.', 'error');
+            setDropdownData(prev => ({ ...prev, isLoading: false }));
+        }
+    }, [dropdownData.isLoaded, dropdownData.isLoading, showToast]);
+
+
+
+    // Infinite scroll hook
+    const loadMoreContacts = useCallback(async () => {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        await fetchContacts(nextPage, true);
+    }, [currentPage, fetchContacts]);
+
+    const { isLoadingMore, containerRef, tableScrollRef } = useInfiniteScroll(
+        loadMoreContacts,
+        {
+            threshold: 500, // Increased threshold to trigger earlier
+            enabled: !isLoading && hasMoreData,
+            isLoading: isLoading,
+            hasMore: hasMoreData,
+            useTableScroll: true
+        }
+    );
+
+    // Load combo data only when filters are shown
+    useEffect(() => {
+        console.log('Filter visibility changed:', {
+            showFilters,
+            isLoaded: dropdownData.isLoaded,
+            isLoading: dropdownData.isLoading
+        });
+
+        if (showFilters && !dropdownData.isLoaded && !dropdownData.isLoading) {
+            console.log('Triggering combo data load...');
+            loadComboData();
+        }
+    }, [showFilters, dropdownData.isLoaded, dropdownData.isLoading, loadComboData]);
 
     // Initial fetch on mount
     useEffect(() => {
-        fetchContacts(1, false, false);
+        fetchContacts(1, false);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Filter handling functions for multiselect
+    const handleCompanySelect = useCallback((selectedList: CompanyOption[]) => {
+        const companyIds = selectedList.map(item => item.id);
+        setFilters(prev => ({ ...prev, company_id: companyIds }));
     }, []);
 
-    // Fetch when search params change (reset infinite scroll)
-    useEffect(() => {
-        const hasActiveFilters = Object.values(searchParams).some(value => value !== '');
-        const isClearing = Object.values(searchParams).every(value => value === '');
+    const handleDepartmentSelect = useCallback((selectedList: CompanyOption[]) => {
+        const departmentNames = selectedList.map(item => item.name);
+        setFilters(prev => ({ ...prev, department: departmentNames }));
+    }, []);
 
-        if (hasActiveFilters || isClearing) {
-            // Reset infinite scroll state
-            setCurrentPage(1);
-            setAllContacts([]);
-            setHasMoreData(true);
-            fetchContacts(1, false, false);
+    const handleCountrySelect = useCallback((selectedList: CompanyOption[]) => {
+        const countryNames = selectedList.map(item => item.name);
+        setFilters(prev => ({ ...prev, person_country: countryNames }));
+    }, []);
+
+    // Search function to apply filters
+    const handleSearchWithFilters = useCallback(async () => {
+        // Convert array filters to comma-separated strings for API
+        const apiFilters = {
+            company_id: filters.company_id.join(','),
+            department: filters.department.join(','),
+            person_country: filters.person_country.join(',')
+        };
+
+        // Reset pagination and data
+        setCurrentPage(1);
+        setAllContacts([]);
+        setHasMoreData(true);
+        setIsLoading(true);
+
+        try {
+            const response = await getContacts({
+                page: 1,
+                per_page: ITEMS_PER_PAGE,
+                ...apiFilters
+            });
+
+            if (response && response.data) {
+                setAllContacts(response.data || []);
+                setTotalItems(response.total || 0);
+                setHasMoreData((response.current_page || 1) < (response.last_page || 1));
+
+                const activeFilterCount = filters.company_id.length + filters.department.length + filters.person_country.length;
+                if (activeFilterCount > 0) {
+                    showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''} - Found ${response.total || 0} contacts`, 'success');
+                } else {
+                    showToast(`Search completed - Found ${response.total || 0} contacts`, 'success');
+                }
+            }
+        } catch (error) {
+            console.error('Search failed:', error);
+            showToast('Search failed. Please try again.', 'error');
+        } finally {
+            setIsLoading(false);
         }
-    }, [searchParams]);
+    }, [filters, showToast]);
+
+    const clearFilters = useCallback(() => {
+        setFilters({
+            company_id: [], // Clear company IDs
+            department: [],
+            person_country: []
+        });
+        showToast('Filters cleared', 'success');
+    }, [showToast]);
+
+
 
 
     const handleAddContact = () => {
         setSelectedContact(null);
-        setFormData({
-            companyName: '',
-            personName: '',
-            email: '',
-            mobile: '',
-            country: '',
-            city: '',
-            department: '',
-            designation: '',
-        });
         setShowModal(true);
     };
 
     const handleEditContact = (contact: Contact) => {
         setSelectedContact(contact);
-        setFormData({
-            companyName: contact.company_name,
-            personName: contact.person_name,
-            email: '', // Add these fields when available in the API
-            mobile: '',
-            country: contact.person_country,
-            city: contact.city,
-            department: contact.department,
-            designation: contact.designation,
-        });
         setShowModal(true);
     };
 
@@ -303,19 +427,14 @@ const ContactManagement = () => {
 
         try {
             await deleteContact(contactToDelete.id);
-            success('Contact deleted successfully!', {
-                title: 'Deleted'
-            });
+            showToast('Contact deleted successfully!', 'success');
             // Reset infinite scroll and reload data
             setCurrentPage(1);
             setAllContacts([]);
             setHasMoreData(true);
             fetchContacts(1, false, false);
         } catch (error) {
-            showError(error instanceof Error ? error.message : 'Failed to delete contact', {
-                title: 'Delete Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
+            showToast(error instanceof Error ? error.message : 'Failed to delete contact', 'error');
         } finally {
             setShowDeleteConfirmation(false);
             setContactToDelete(null);
@@ -328,24 +447,15 @@ const ContactManagement = () => {
         if (file) {
             console.log('File selected:', file.name, file.type, file.size);
             try {
-                success('Bulk upload started. Processing file...', {
-                    title: 'Upload Started',
-                    showProgress: false
-                });
+                showToast('Bulk upload started. Processing file...', 'success');
                 const response = await bulkImportContacts(file);
 
                 // Handle file validation error
                 if (response.file && Array.isArray(response.file) && response.file.length > 0) {
-                    showError(response.file[0], {
-                        title: 'File Validation Error',
-                        duration: 8000 // Auto-close after 8 seconds
-                    });
+                    showToast(response.file[0], 'error');
                     return;
                 } else if (response.file && typeof response.file === 'string') {
-                    showError(response.file, {
-                        title: 'File Validation Error',
-                        duration: 8000 // Auto-close after 8 seconds
-                    });
+                    showToast(response.file, 'error');
                     return;
                 }
 
@@ -353,17 +463,12 @@ const ContactManagement = () => {
                 if (response.success !== undefined) {
                     if (response.failure === 0) {
                         // Complete success case
-                        success(`Successfully imported all ${response.success} contacts!`, {
-                            title: 'Import Complete'
-                        });
+                        showToast(`Successfully imported all ${response.success} contacts!`, 'success');
                     } else {
                         // Partial success case with errors
-                        showError(
+                        showToast(
                             `Imported ${response.success} contacts with ${response.failure} failures. Check error details below.`,
-                            {
-                                title: 'Partial Import',
-                                duration: 10000 // Auto-close after 10 seconds for important info
-                            }
+                            'error'
                         );
 
                         // If there are specific errors, show them in separate toasts
@@ -373,10 +478,7 @@ const ContactManagement = () => {
                                     ? `Missing required field: ${error.message.match(/Column '(.+?)' cannot/)?.[1] || 'unknown field'}`
                                     : error.message
                                     }`;
-                                showError(errorMessage, {
-                                    title: 'Import Error',
-                                    duration: 8000 // Auto-close after 8 seconds
-                                });
+                                showToast(errorMessage, 'error');
                             });
                         }
                     }
@@ -388,12 +490,9 @@ const ContactManagement = () => {
                     fetchContacts(1, false, false);
                 }
             } catch (error: any) {
-                showError(
+                showToast(
                     error.file[0],
-                    {
-                        title: 'Import Failed',
-                        duration: 8000 // Auto-close after 8 seconds
-                    }
+                    'error'
                 );
             } finally {
                 // Reset the file input
@@ -402,13 +501,7 @@ const ContactManagement = () => {
         }
     };
 
-    const handleExportContacts = () => {
-        // TODO: Implement API integration for export
-        success('Exporting contacts...', {
-            title: 'Export Started',
-            showProgress: false
-        });
-    };
+
 
     const handleBulkUploadClick = () => {
         console.log('Bulk upload button clicked');
@@ -435,9 +528,7 @@ const ContactManagement = () => {
                 .filter(([_, selected]) => selected)
                 .map(([id]) => id);
             await Promise.all(selectedIds.map(id => deleteContact(id)));
-            success(`Successfully deleted ${selectedIds.length} contacts!`, {
-                title: 'Bulk Delete Complete'
-            });
+            showToast(`Successfully deleted ${selectedIds.length} contacts!`, 'success');
             setSelectedRows({});
             // Reset infinite scroll and reload data
             setCurrentPage(1);
@@ -445,10 +536,7 @@ const ContactManagement = () => {
             setHasMoreData(true);
             fetchContacts(1, false, false);
         } catch (error) {
-            showError(error instanceof Error ? error.message : 'Failed to delete contacts', {
-                title: 'Bulk Delete Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
+            showToast(error instanceof Error ? error.message : 'Failed to delete contacts', 'error');
         } finally {
             setShowBulkDeleteConfirmation(false);
         }
@@ -466,9 +554,7 @@ const ContactManagement = () => {
                 .filter(([_, selected]) => selected)
                 .map(([id]) => id);
             await Promise.all(selectedIds.map(id => updateContactStatus(id, bulkStatusToSet)));
-            success(`Successfully updated status for ${selectedIds.length} contacts!`, {
-                title: 'Status Updated'
-            });
+            showToast(`Successfully updated status for ${selectedIds.length} contacts!`, 'success');
             setSelectedRows({});
             // Reset infinite scroll and reload data
             setCurrentPage(1);
@@ -476,10 +562,7 @@ const ContactManagement = () => {
             setHasMoreData(true);
             fetchContacts(1, false, false);
         } catch (error) {
-            showError(error instanceof Error ? error.message : 'Failed to update contact status', {
-                title: 'Status Update Failed',
-                duration: 6000 // Auto-close after 6 seconds
-            });
+            showToast(error instanceof Error ? error.message : 'Failed to update contact status', 'error');
         } finally {
             setShowBulkStatusConfirmation(false);
             setBulkStatusToSet(null);
@@ -507,221 +590,292 @@ const ContactManagement = () => {
     // };
 
     return (
-        <div className="space-y-6" ref={containerRef}>
-            {/* Header Section */}
-            <Card variant="elevated" padding="lg">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-neutral-900">Contact Management</h2>
-                        <p className="mt-1 text-sm text-neutral-500">
-                            Manage pharmaceutical industry contacts
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-                        {/* <Button
-                            variant="success"
-                            onClick={handleExportContacts}
-                            icon={<Download size={18} />}
-                        >
-                            <span className="hidden sm:inline">Export</span>
-                        </Button> */}
-                        <div>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".csv,.xlsx,.xls"
-                                onChange={handleBulkUpload}
-                                className="hidden"
-                                title="Upload CSV or Excel file"
-                            />
-                            <Button
-                                onClick={handleBulkUploadClick}
-                                icon={<Upload size={18} />}
-                                type="button"
-                            >
-                                <span className="hidden sm:inline">Bulk Upload</span>
-                            </Button>
-                        </div>
-                        <Button
-                            onClick={handleAddContact}
-                            icon={<Plus size={18} />}
-                        >
-                            <span className="hidden sm:inline">Add Contact</span>
-                        </Button>
-                    </div>
-                </div>
-            </Card>
-
-            {/* Search and Filter Section */}
-            <Card variant="elevated" padding="none">
-                {/* <div className="p-6 border-b border-neutral-200">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
-                            <Input
-                                type="text"
-                                value={searchParams.company_name || ''}
-                                onChange={e => setSearchParams(prev => ({
-                                    ...prev,
-                                    company_name: e.target.value
-                                }))}
-                                placeholder="Search contacts by company name..."
-                                leftIcon={
-                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                                    </svg>
-                                }
-                            />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                icon={<Filter className="h-4 w-4" />}
-                            >
-                                Filters
-                                {Object.values(searchParams).some(param => param !== '') && (
-                                    <Badge variant="primary" size="sm" className="ml-2">
-                                        {Object.values(searchParams).filter(param => param !== '').length}
-                                    </Badge>
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                </div> */}
-
-                {/* Filter Panel */}
-                {isFilterOpen && (
-                    <div className="p-6 bg-neutral-50 border-b border-neutral-200">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <Input
-                                label="Designation"
-                                type="text"
-                                value={searchParams.designation}
-                                onChange={(e) => setSearchParams(prev => ({
-                                    ...prev,
-                                    designation: e.target.value
-                                }))}
-                                placeholder="Enter designation"
-                                leftIcon={
-                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                                    </svg>
-                                }
-                            />
-                            <Input
-                                label="Country"
-                                type="text"
-                                value={searchParams.person_country}
-                                onChange={(e) => setSearchParams(prev => ({
-                                    ...prev,
-                                    person_country: e.target.value
-                                }))}
-                                placeholder="Enter country"
-                                leftIcon={
-                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
-                                    </svg>
-                                }
-                            />
-                            <Input
-                                label="City"
-                                type="text"
-                                value={searchParams.city}
-                                onChange={(e) => setSearchParams(prev => ({
-                                    ...prev,
-                                    city: e.target.value
-                                }))}
-                                placeholder="Enter city"
-                                leftIcon={
-                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                                    </svg>
-                                }
-                            />
-                        </div>
-                        <div className="mt-6 flex items-center justify-end gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setSearchParams({
-                                        company_name: '',
-                                        designation: '',
-                                        person_country: '',
-                                        city: ''
-                                    });
-                                    setCurrentPage(1);
-                                    setAllContacts([]);
-                                    setHasMoreData(true);
-                                    fetchContacts(1, true, false);
-                                    success('All filters have been cleared!', {
-                                        title: 'Filters Cleared'
-                                    });
-                                }}
-                            >
-                                Clear Filters
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    setCurrentPage(1);
-                                    setAllContacts([]);
-                                    setHasMoreData(true);
-                                    fetchContacts(1, false, false);
-                                }}
-                            >
-                                Apply Filters
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </Card>
-
-            {/* Desktop Selected Items Banner */}
-            <div className="hidden sm:block">
-                {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
-                    <Card variant="elevated" padding="md" className="bg-primary-50 border-primary-200">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-primary-700 font-medium">
-                                {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
-                            </span>
+        <div className="fixed inset-0 top-16 left-64 bg-gray-50 overflow-hidden" ref={containerRef}>
+            <div className="h-full p-6">
+                <div className="flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden h-full">
+                    {/* Header Section - Fixed at top */}
+                    <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 px-6 py-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-900">Contact Management</h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Manage pharmaceutical industry contacts ({totalItems.toLocaleString()} total contacts)
+                                </p>
+                            </div>
                             <div className="flex gap-2">
-                                <select
-                                    onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
-                                    className="text-sm px-3 py-2 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
-                                    value=""
-                                >
-                                    <option value="">Change Status</option>
-                                    <option value="Active">Set Active</option>
-                                    <option value="Inactive">Set Inactive</option>
-                                </select>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".csv,.xlsx,.xls"
+                                    onChange={handleBulkUpload}
+                                    className="hidden"
+                                    title="Upload CSV or Excel file"
+                                />
                                 <Button
-                                    variant="danger"
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    icon={<Filter size={18} />}
+                                    type="button"
                                     size="sm"
-                                    onClick={handleBulkDeleteClick}
+                                    variant={showFilters ? "primary" : "outline"}
                                 >
-                                    Delete Selected
+                                    <span className="hidden sm:inline">Filters</span>
+                                    <span className="sm:hidden">Filter</span>
+                                </Button>
+                                <Button
+                                    onClick={handleBulkUploadClick}
+                                    icon={<Upload size={18} />}
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                >
+                                    <span className="hidden sm:inline">Bulk Upload</span>
+                                    <span className="sm:hidden">Upload</span>
+                                </Button>
+                                <Button
+                                    onClick={handleAddContact}
+                                    icon={<Plus size={18} />}
+                                    size="sm"
+                                >
+                                    <span className="hidden sm:inline">Add Contact</span>
+                                    <span className="sm:hidden">Add</span>
                                 </Button>
                             </div>
                         </div>
-                    </Card>
-                )}
-            </div>
+                    </div>
 
-            {/* Contact Table Container */}
-            <Card variant="elevated" padding="none" className="overflow-hidden">
-                {/* Mobile Selected Items Banner */}
-                <div className="block sm:hidden">
-                    {Object.entries(selectedRows).filter(([_, selected]) => selected).length > 0 && (
-                        <div className="bg-primary-50 px-4 py-3 border-b border-primary-100">
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-primary-700">
-                                        {Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts selected
-                                    </span>
+                    {/* Filter Panel - Collapsible */}
+                    {showFilters && (
+                        <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 px-6 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Company Name Multiselect */}
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Company Name
+                                    </label>
+                                    <Multiselect
+                                        options={dropdownData.companies}
+                                        selectedValues={dropdownData.companies.filter(company =>
+                                            filters.company_id.includes(company.id)
+                                        )}
+                                        onSelect={handleCompanySelect}
+                                        onRemove={handleCompanySelect}
+                                        displayValue="name"
+                                        placeholder={dropdownData.isLoading ? "Loading companies..." : "Search and select company names..."}
+                                        emptyRecordMsg={dropdownData.isLoading ? "Loading companies..." : "No companies found. Try a different search term."}
+                                        showCheckbox={true}
+                                        closeIcon="cancel"
+                                        showArrow={true}
+                                        disable={dropdownData.isLoading}
+                                        style={{
+                                            chips: {
+                                                background: '#3B82F6',
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                borderRadius: '4px',
+                                                padding: '2px 6px',
+                                                margin: '1px'
+                                            },
+                                            searchBox: {
+                                                border: '1px solid #D1D5DB',
+                                                borderRadius: '6px',
+                                                padding: '8px',
+                                                fontSize: '14px',
+                                                backgroundColor: 'white',
+                                                width: '100%'
+                                            },
+                                            multiselectContainer: {
+                                                backgroundColor: 'white',
+                                                zIndex: 9999,
+                                                width: '100%'
+                                            },
+                                            option: {
+                                                color: '#374151',
+                                                backgroundColor: 'white',
+                                                padding: '8px 12px',
+                                                width: '100%'
+                                            },
+                                            optionContainer: {
+                                                border: '1px solid #D1D5DB',
+                                                borderRadius: '6px',
+                                                maxHeight: '200px',
+                                                zIndex: 9999,
+                                                position: 'absolute',
+                                                backgroundColor: 'white',
+                                                width: '100%'
+                                            }
+                                        }}
+                                    />
                                 </div>
-                                <div className="grid grid-cols-1 gap-2">
+
+                                {/* Department Multiselect */}
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Department
+                                    </label>
+                                    <Multiselect
+                                        options={dropdownData.departments}
+                                        selectedValues={dropdownData.departments.filter(dept =>
+                                            filters.department.includes(dept.name)
+                                        )}
+                                        onSelect={handleDepartmentSelect}
+                                        onRemove={handleDepartmentSelect}
+                                        displayValue="name"
+                                        placeholder={dropdownData.isLoading ? "Loading departments..." : "Search and select departments..."}
+                                        emptyRecordMsg={dropdownData.isLoading ? "Loading departments..." : "No departments found. Try a different search term."}
+                                        showCheckbox={true}
+                                        closeIcon="cancel"
+                                        showArrow={true}
+                                        disable={dropdownData.isLoading}
+                                        style={{
+                                            chips: {
+                                                background: '#F59E0B',
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                borderRadius: '4px',
+                                                padding: '2px 6px',
+                                                margin: '1px'
+                                            },
+                                            searchBox: {
+                                                border: '1px solid #D1D5DB',
+                                                borderRadius: '6px',
+                                                padding: '8px',
+                                                fontSize: '14px',
+                                                backgroundColor: 'white',
+                                                width: '100%'
+                                            },
+                                            multiselectContainer: {
+                                                backgroundColor: 'white',
+                                                zIndex: 9999,
+                                                width: '100%'
+                                            },
+                                            option: {
+                                                color: '#374151',
+                                                backgroundColor: 'white',
+                                                padding: '8px 12px',
+                                                width: '100%'
+                                            },
+                                            optionContainer: {
+                                                border: '1px solid #D1D5DB',
+                                                borderRadius: '6px',
+                                                maxHeight: '200px',
+                                                zIndex: 9999,
+                                                position: 'absolute',
+                                                backgroundColor: 'white',
+                                                width: '100%'
+                                            }
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Person Country Multiselect */}
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Person Country
+                                    </label>
+                                    <Multiselect
+                                        options={dropdownData.countries}
+                                        selectedValues={dropdownData.countries.filter(country =>
+                                            filters.person_country.includes(country.name)
+                                        )}
+                                        onSelect={handleCountrySelect}
+                                        onRemove={handleCountrySelect}
+                                        displayValue="name"
+                                        placeholder={dropdownData.isLoading ? "Loading countries..." : "Search and select person countries..."}
+                                        emptyRecordMsg={dropdownData.isLoading ? "Loading countries..." : "No countries found. Try a different search term."}
+                                        showCheckbox={true}
+                                        closeIcon="cancel"
+                                        showArrow={true}
+                                        disable={dropdownData.isLoading}
+                                        style={{
+                                            chips: {
+                                                background: '#8B5CF6',
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                borderRadius: '4px',
+                                                padding: '2px 6px',
+                                                margin: '1px'
+                                            },
+                                            searchBox: {
+                                                border: '1px solid #D1D5DB',
+                                                borderRadius: '6px',
+                                                padding: '8px',
+                                                fontSize: '14px',
+                                                backgroundColor: 'white',
+                                                width: '100%'
+                                            },
+                                            multiselectContainer: {
+                                                backgroundColor: 'white',
+                                                zIndex: 9999,
+                                                width: '100%'
+                                            },
+                                            option: {
+                                                color: '#374151',
+                                                backgroundColor: 'white',
+                                                padding: '8px 12px',
+                                                width: '100%'
+                                            },
+                                            optionContainer: {
+                                                border: '1px solid #D1D5DB',
+                                                borderRadius: '6px',
+                                                maxHeight: '200px',
+                                                zIndex: 9999,
+                                                position: 'absolute',
+                                                backgroundColor: 'white',
+                                                width: '100%'
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Filter Actions */}
+                            <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+                                <div className="text-sm text-gray-600">
+                                    {(() => {
+                                        const totalFilters = filters.company_id.length + filters.department.length + filters.person_country.length;
+                                        return totalFilters > 0 ? (
+                                            <span className="text-blue-600 font-medium">
+                                                {totalFilters} filter(s) selected
+                                            </span>
+                                        ) : (
+                                            <span>No filters selected</span>
+                                        );
+                                    })()}
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={clearFilters}
+                                        variant="outline"
+                                        size="sm"
+                                        icon={<X size={16} />}
+                                        disabled={filters.company_id.length === 0 && filters.department.length === 0 && filters.person_country.length === 0}
+                                    >
+                                        Clear All
+                                    </Button>
+                                    <Button
+                                        onClick={handleSearchWithFilters}
+                                        size="sm"
+                                        icon={<Search size={16} />}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? 'Searching...' : 'Search'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Selected Items Banner - Fixed position when items are selected */}
+                    {Object.entries(selectedRows).filter(([, selected]) => selected).length > 0 && (
+                        <div className="flex-shrink-0 bg-blue-50 border-b border-blue-200 px-6 py-3">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <span className="text-sm font-medium text-blue-700">
+                                    {Object.entries(selectedRows).filter(([, selected]) => selected).length} contacts selected
+                                </span>
+                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                     <select
                                         onChange={(e) => handleBulkStatusClick(e.target.value as 'Active' | 'Inactive')}
-                                        className="block w-full text-sm px-3 py-2 border border-neutral-300 rounded-xl bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all duration-200"
+                                        className="text-sm px-3 py-2 border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                                         value=""
                                     >
                                         <option value="">Change Status</option>
@@ -730,8 +884,9 @@ const ContactManagement = () => {
                                     </select>
                                     <Button
                                         variant="danger"
+                                        size="sm"
                                         onClick={handleBulkDeleteClick}
-                                        className="w-full justify-center"
+                                        className="sm:w-auto w-full justify-center"
                                     >
                                         Delete Selected
                                     </Button>
@@ -739,123 +894,92 @@ const ContactManagement = () => {
                             </div>
                         </div>
                     )}
-                </div>
 
-                {/* Table Wrapper */}
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                    <div className="inline-block min-w-full align-middle">
-                        <div className="overflow-hidden">
-                            <div className="min-w-full divide-y divide-gray-200">
-                                <Table
-                                    data={allContacts}
-                                    columns={columns}
-                                    isLoading={loading}
-                                    sorting={sorting}
-                                    onSortingChange={setSorting}
-                                    enableSelection={true}
-                                    selectedRows={selectedRows}
-                                    onSelectionChange={setSelectedRows}
-                                    enablePagination={false}
-                                    emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
+                    {/* Table Section - Scrollable content */}
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                        <Table
+                            data={allContacts}
+                            columns={columns}
+                            isLoading={isLoading}
+                            sorting={sorting}
+                            onSortingChange={setSorting}
+                            enableSorting={true}
+                            enablePagination={false}
+                            enableTableScroll={true}
+                            tableHeight="100%"
+                            scrollContainerRef={tableScrollRef}
+                            isLoadingMore={isLoadingMore}
+                            showScrollToTop={true}
+                            enableSelection={true}
+                            selectedRows={selectedRows}
+                            onSelectionChange={setSelectedRows}
+                            emptyStateMessage="No contacts found. Try adjusting your filters or search terms."
+                        />
+                    </div>
+
+
+
+                    {/* Delete Confirmation Dialog */}
+                    <ConfirmationDialog
+                        isOpen={showDeleteConfirmation}
+                        title="Delete Contact"
+                        message={`Are you sure you want to delete ${contactToDelete?.person_name}'s contact information? This action cannot be undone.`}
+                        confirmLabel="Delete"
+                        cancelLabel="Cancel"
+                        confirmVariant="danger"
+                        onConfirm={handleDeleteConfirm}
+                        onCancel={() => {
+                            setShowDeleteConfirmation(false);
+                            setContactToDelete(null);
+                        }}
+                    />
+
+                    {/* Bulk Delete Confirmation Dialog */}
+                    <ConfirmationDialog
+                        isOpen={showBulkDeleteConfirmation}
+                        title="Delete Multiple Contacts"
+                        message={`Are you sure you want to delete ${Object.entries(selectedRows).filter(([, selected]) => selected).length} contacts? This action cannot be undone.`}
+                        confirmLabel="Delete All"
+                        cancelLabel="Cancel"
+                        confirmVariant="danger"
+                        onConfirm={handleBulkDeleteConfirm}
+                        onCancel={() => setShowBulkDeleteConfirmation(false)}
+                    />
+
+                    {/* Bulk Status Change Confirmation Dialog */}
+                    <ConfirmationDialog
+                        isOpen={showBulkStatusConfirmation}
+                        title="Update Contact Status"
+                        message={`Are you sure you want to set ${Object.entries(selectedRows).filter(([, selected]) => selected).length} contacts to ${bulkStatusToSet} status?`}
+                        confirmLabel="Update All"
+                        cancelLabel="Cancel"
+                        confirmVariant="warning"
+                        onConfirm={handleBulkStatusConfirm}
+                        onCancel={() => {
+                            setShowBulkStatusConfirmation(false);
+                            setBulkStatusToSet(null);
+                        }}
+                    />
+
+                    {/* Add/Edit Contact Modal */}
+                    {showModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div className="fixed inset-0 bg-neutral-500/75 backdrop-blur-sm" aria-hidden="true" onClick={() => setShowModal(false)}></div>
+
+                            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] max-h-[90vh] overflow-hidden">
+                                <ContactForm
+                                    contact={selectedContact}
+                                    onSuccess={handleFormSuccess}
+                                    onCancel={() => setShowModal(false)}
                                 />
                             </div>
                         </div>
-                    </div>
+                    )}
+
                 </div>
-
-                {/* Infinite scroll loading indicator */}
-                {isLoadingMore && (
-                    <div className="border-t border-gray-200 px-6 py-6">
-                        <div className="flex items-center justify-center">
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <Loader2 size={20} className="animate-spin" />
-                                <span className="text-sm font-medium">Loading more contacts...</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Status information */}
-                {!loading && allContacts.length > 0 && (
-                    <div className="border-t border-gray-200 px-6 py-4">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="text-sm text-gray-700">
-                                Showing {allContacts.length} of {totalItems} contacts
-                                {!hasMoreData && allContacts.length > 10 && (
-                                    <span className="ml-2 text-gray-500">(All contacts loaded)</span>
-                                )}
-                            </div>
-                            {hasMoreData && (
-                                <div className="text-sm text-gray-500">
-                                    Scroll down to load more contacts
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </Card>
-
-            {/* Delete Confirmation Dialog */}
-            <ConfirmationDialog
-                isOpen={showDeleteConfirmation}
-                title="Delete Contact"
-                message={`Are you sure you want to delete ${contactToDelete?.person_name}'s contact information? This action cannot be undone.`}
-                confirmLabel="Delete"
-                cancelLabel="Cancel"
-                confirmVariant="danger"
-                onConfirm={handleDeleteConfirm}
-                onCancel={() => {
-                    setShowDeleteConfirmation(false);
-                    setContactToDelete(null);
-                }}
-            />
-
-            {/* Bulk Delete Confirmation Dialog */}
-            <ConfirmationDialog
-                isOpen={showBulkDeleteConfirmation}
-                title="Delete Multiple Contacts"
-                message={`Are you sure you want to delete ${Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts? This action cannot be undone.`}
-                confirmLabel="Delete All"
-                cancelLabel="Cancel"
-                confirmVariant="danger"
-                onConfirm={handleBulkDeleteConfirm}
-                onCancel={() => setShowBulkDeleteConfirmation(false)}
-            />
-
-            {/* Bulk Status Change Confirmation Dialog */}
-            <ConfirmationDialog
-                isOpen={showBulkStatusConfirmation}
-                title="Update Contact Status"
-                message={`Are you sure you want to set ${Object.entries(selectedRows).filter(([_, selected]) => selected).length} contacts to ${bulkStatusToSet} status?`}
-                confirmLabel="Update All"
-                cancelLabel="Cancel"
-                confirmVariant="warning"
-                onConfirm={handleBulkStatusConfirm}
-                onCancel={() => {
-                    setShowBulkStatusConfirmation(false);
-                    setBulkStatusToSet(null);
-                }}
-            />
-
-            {/* Add/Edit Contact Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-neutral-500/75 backdrop-blur-sm" aria-hidden="true" onClick={() => setShowModal(false)}></div>
-
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] max-h-[90vh] overflow-hidden">
-                        <ContactForm
-                            contact={selectedContact}
-                            onSuccess={handleFormSuccess}
-                            onCancel={() => setShowModal(false)}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Scroll to top button */}
-            <ScrollToTopButton threshold={300} />
+            </div>
         </div>
     );
 };
 
-export default ContactManagement; 
+export default ContactManagement;
