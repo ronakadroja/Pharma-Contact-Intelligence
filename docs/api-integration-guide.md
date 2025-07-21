@@ -358,7 +358,7 @@ GET /api/contacts?page=1&per_page=10&company_name=Pfizer&designation=Director
   "email": "jane.smith@newpharma.com",
   "department": "Clinical Research",
   "designation": "Clinical Research Manager",
-  "company_type": "Pharmaceutical Manufacturer",
+  "product_type": "Pharmaceutical Manufacturer",
   "person_country": "Canada",
   "company_country": "Canada",
   "company_linkedin_url": "https://linkedin.com/company/newpharma",

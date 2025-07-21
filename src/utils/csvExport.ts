@@ -346,8 +346,8 @@ export const exportContacts = (
                 type: 'text'
             },
             {
-                header: 'Company Type',
-                accessor: 'company_type',
+                header: 'Product Type',
+                accessor: 'product_type',
                 minWidth: 15,
                 maxWidth: 20,
                 type: 'text'

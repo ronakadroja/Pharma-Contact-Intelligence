@@ -6,13 +6,7 @@ import Table from '../components/Table';
 import { Button, Card } from '../components/ui/design-system';
 import { useToast } from '../context/ToastContext';
 import { exportContacts } from '../utils/csvExport';
-import {
-    validateCredits,
-    validateEmail,
-    validateRequired,
-    type FormErrors,
-    type ValidationResult
-} from '../utils/validation';
+// Removed validation imports as we're just displaying data
 import type { ColumnDef, RowSelectionState, SortingState } from '@tanstack/react-table';
 
 interface SavedContact {
@@ -21,12 +15,13 @@ interface SavedContact {
     person_name: string;
     department: string;
     designation: string;
-    company_type: string | null;
+    product_type: string | null;
     email: string;
     phone_number: string;
     city: string;
     person_country: string;
     company_country: string;
+    region: string;
     person_linkedin_url: string | null;
     company_linkedin_url: string | null;
     company_website: string | null;
@@ -45,7 +40,6 @@ const MyListPage = () => {
     const [availableCredit, setAvailableCredit] = useState<string>('');
     const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
     const [isExporting, setIsExporting] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<FormErrors>({});
 
     // Table state
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -58,40 +52,6 @@ const MyListPage = () => {
     }, [savedContacts, selectedContactIds]);
 
     const hasSelectedContacts = selectedContacts.length > 0;
-
-    // Validation functions
-    const validateSavedContactData = useCallback((contact: SavedContact): ValidationResult => {
-        // Validate required fields
-        if (!validateRequired(contact.company_name, 'Company name').isValid) {
-            return { isValid: false, error: 'Company name is required' };
-        }
-
-        if (!validateRequired(contact.person_name, 'Person name').isValid) {
-            return { isValid: false, error: 'Person name is required' };
-        }
-
-        if (!validateEmail(contact.email).isValid) {
-            return { isValid: false, error: 'Valid email is required' };
-        }
-
-        if (!validateRequired(contact.department, 'Department').isValid) {
-            return { isValid: false, error: 'Department is required' };
-        }
-
-        if (!validateRequired(contact.designation, 'Designation').isValid) {
-            return { isValid: false, error: 'Designation is required' };
-        }
-
-        if (!validateRequired(contact.person_country, 'Person country').isValid) {
-            return { isValid: false, error: 'Person country is required' };
-        }
-
-        if (!validateRequired(contact.company_country, 'Company country').isValid) {
-            return { isValid: false, error: 'Company country is required' };
-        }
-
-        return { isValid: true };
-    }, []);
 
     // Table columns definition
     const columns: ColumnDef<SavedContact>[] = useMemo(() => [
@@ -136,22 +96,6 @@ const MyListPage = () => {
                                 <Linkedin size={16} />
                             </a>
                         )}
-                        {/* Validation status indicator */}
-                        {(() => {
-                            const validation = validateSavedContactData(row.original);
-                            if (!validation.isValid) {
-                                return (
-                                    <div
-                                        className="flex items-center gap-1 text-xs text-red-600"
-                                        title={`Validation Error: ${validation.error}`}
-                                    >
-                                        <XCircle size={12} />
-                                        <span>Invalid</span>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })()}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
                         {row.original.designation} | {row.original.department}
@@ -228,6 +172,24 @@ const MyListPage = () => {
             ),
         },
         {
+            accessorKey: 'region',
+            header: 'Region',
+            cell: ({ row }) => (
+                <div className="text-sm text-gray-900">
+                    {row.original.region || 'N/A'}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'product_type',
+            header: 'Product Type',
+            cell: ({ row }) => (
+                <div className="text-sm text-gray-900">
+                    {row.original.product_type || 'N/A'}
+                </div>
+            ),
+        },
+        {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }) => (
@@ -269,49 +231,9 @@ const MyListPage = () => {
         //         </div>
         //     ),
         // },
-    ], [validateSavedContactData]);
+    ], []);
 
-    const validateExportOperation = useCallback((): ValidationResult => {
-        // Check if user has sufficient credits
-        const creditValidation = validateCredits(availableCredit);
-        if (!creditValidation.isValid) {
-            return { isValid: false, error: 'Invalid credit information' };
-        }
-
-        // Check if any contacts are selected
-        if (selectedContacts.length === 0) {
-            return { isValid: false, error: 'Please select at least one contact to export' };
-        }
-
-        // Validate selected contacts data integrity
-        for (const contact of selectedContacts) {
-            const contactValidation = validateSavedContactData(contact);
-            if (!contactValidation.isValid) {
-                return {
-                    isValid: false,
-                    error: `Invalid contact data for ${contact.person_name}: ${contactValidation.error}`
-                };
-            }
-        }
-
-        return { isValid: true };
-    }, [availableCredit, selectedContacts, validateSavedContactData]);
-
-    const validateContactSelection = useCallback((contactIds: Set<string>): ValidationResult => {
-        if (contactIds.size === 0) {
-            return { isValid: false, error: 'No contacts selected' };
-        }
-
-        // Check if all selected contact IDs exist in the saved contacts
-        const existingIds = new Set(savedContacts.map(contact => contact.id || ''));
-        for (const id of contactIds) {
-            if (!existingIds.has(id)) {
-                return { isValid: false, error: 'Selected contact no longer exists' };
-            }
-        }
-
-        return { isValid: true };
-    }, [savedContacts]);
+    // Removed validation functions - just displaying data
 
     const handleClearSelection = useCallback(() => {
         setSelectedContactIds(new Set());
@@ -345,7 +267,7 @@ const MyListPage = () => {
         setSelectedContactIds(newSelectedIds);
     }, [selectedRows, savedContacts]);
 
-    // Data fetching with validation - runs only once on mount
+    // Data fetching - runs only once on mount
     useEffect(() => {
         const fetchSavedContacts = async () => {
             try {
@@ -354,54 +276,36 @@ const MyListPage = () => {
 
                 // Handle successful response (including empty responses)
                 if (response && typeof response === 'object') {
-                    // Validate credit information
-                    const newValidationErrors: FormErrors = {};
-
                     // Set available credit (default to '0' if not provided)
                     const availableCredit = response.available_credit || '0';
-                    const creditValidation = validateCredits(availableCredit);
-                    if (!creditValidation.isValid) {
-                        newValidationErrors.credits = creditValidation.error || '';
-                        showError('Invalid credit information received from server', {
-                            title: 'Data Validation Error',
-                            duration: 6000
-                        });
-                    }
-
                     setAvailableCredit(availableCredit);
 
                     // Handle contact list (may be empty array or undefined)
                     const contactList = response.my_list || [];
 
-                    // Format and validate contact data
+                    // Format contact data
                     const formattedContacts = contactList.map((contact, index) => {
                         const formattedContact = {
                             ...contact,
                             id: index.toString(),
+                            // Ensure required string fields are never null/undefined
+                            company_name: contact.company_name || '',
+                            person_name: contact.person_name || '',
+                            department: contact.department || '',
+                            designation: contact.designation || '',
+                            email: contact.email || '',
+                            phone_number: contact.phone_number || '',
+                            city: contact.city || '',
+                            person_country: contact.person_country || '',
+                            company_country: contact.company_country || '',
+                            region: contact.region || '',
                             is_verified: contact.is_verified || 0
                         };
-
-                        // Validate each contact's data integrity
-                        const contactValidation = validateSavedContactData(formattedContact);
-                        if (!contactValidation.isValid) {
-                            console.warn(`Contact validation failed for ${contact.person_name}:`, contactValidation.error);
-                            newValidationErrors[`contact_${index}`] = contactValidation.error || '';
-                        }
 
                         return formattedContact;
                     });
 
                     setSavedContacts(formattedContacts);
-                    setValidationErrors(newValidationErrors);
-
-                    // Show validation summary if there are errors
-                    const errorCount = Object.keys(newValidationErrors).length;
-                    if (errorCount > 0) {
-                        showError(`${errorCount} contact(s) have data validation issues. Please review the contact information.`, {
-                            title: 'Data Validation Warning',
-                            duration: 8000
-                        });
-                    }
 
                     // Show success message for empty list (optional)
                     if (contactList.length === 0) {
@@ -536,48 +440,20 @@ const MyListPage = () => {
     // }, [savedContacts, success, showError]);
 
     const handleExport = useCallback((exportType: 'selected' | 'all') => {
-        // Validate export operation before starting
-        if (exportType === 'selected') {
-            const exportValidation = validateExportOperation();
-            if (!exportValidation.isValid) {
-                showError(exportValidation.error || 'Export validation failed', {
-                    title: 'Export Validation Error',
-                    duration: 6000
-                });
-                return;
-            }
-
-            const selectionValidation = validateContactSelection(selectedContactIds);
-            if (!selectionValidation.isValid) {
-                showError(selectionValidation.error || 'Invalid contact selection', {
-                    title: 'Selection Error',
-                    duration: 5000
-                });
-                return;
-            }
+        // Check if any contacts are selected for selected export
+        if (exportType === 'selected' && selectedContacts.length === 0) {
+            showError('Please select at least one contact to export', {
+                title: 'Selection Error',
+                duration: 5000
+            });
+            return;
         }
 
         setIsExporting(true);
 
         const contactsToExport = exportType === 'selected' ? selectedContacts : savedContacts;
 
-        // Validate contacts before export
-        const invalidContacts: string[] = [];
-        contactsToExport.forEach(contact => {
-            const validation = validateSavedContactData(contact);
-            if (!validation.isValid) {
-                invalidContacts.push(`${contact.person_name}: ${validation.error}`);
-            }
-        });
-
-        if (invalidContacts.length > 0) {
-            showError(`Cannot export contacts with validation errors:\n${invalidContacts.slice(0, 3).join('\n')}${invalidContacts.length > 3 ? `\n...and ${invalidContacts.length - 3} more` : ''}`, {
-                title: 'Contact Validation Error',
-                duration: 10000
-            });
-            setIsExporting(false);
-            return;
-        }
+        // Export contacts without validation
 
         exportContacts(
             contactsToExport,
@@ -601,7 +477,7 @@ const MyListPage = () => {
                 setIsExporting(false);
             }
         );
-    }, [selectedContacts, savedContacts, selectedContactIds, validateExportOperation, validateContactSelection, success, showError, validateSavedContactData]);
+    }, [selectedContacts, savedContacts, success, showError]);
 
     if (isLoading) {
         return (
@@ -636,21 +512,6 @@ const MyListPage = () => {
                                 <div>
                                     <h1 className="text-2xl font-semibold text-gray-900">My Contact List</h1>
                                     <p className="text-sm text-gray-600 mt-1">Available Credits: {availableCredit}</p>
-                                    {/* Validation Summary */}
-                                    {(() => {
-                                        const invalidContacts = savedContacts.filter(contact => !validateSavedContactData(contact).isValid);
-                                        if (invalidContacts.length > 0) {
-                                            return (
-                                                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-md">
-                                                    <XCircle size={16} className="text-yellow-600" />
-                                                    <span className="text-sm text-yellow-700 font-medium">
-                                                        {invalidContacts.length} contact(s) have validation issues. Check contact details.
-                                                    </span>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    })()}
                                     <div className="flex items-center gap-3 mt-2">
                                         {hasSelectedContacts ? (
                                             <>

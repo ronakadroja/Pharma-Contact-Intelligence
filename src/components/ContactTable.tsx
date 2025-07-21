@@ -74,7 +74,7 @@ const ContactTable = ({ data, isLoading = false, onEdit }: ContactTableProps) =>
                                                         </a>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-neutral-500">{contact.company_type}</div>
+                                                <div className="text-xs text-neutral-500">{contact.product_type}</div>
                                             </div>
                                         </div>
                                     </td>

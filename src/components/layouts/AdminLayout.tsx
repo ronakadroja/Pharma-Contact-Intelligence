@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
@@ -51,15 +51,29 @@ const menuItemVariants: Variants = {
 
 const AdminLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    // Initialize sidebar collapsed state from localStorage
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        const saved = localStorage.getItem('adminSidebarCollapsed');
+        return saved ? JSON.parse(saved) : false;
+    });
+    // Add layout mounted state to prevent initial flash
+    const [layoutMounted, setLayoutMounted] = useState(false);
     const { user, logout, isLoggingOut } = useAppContext();
     const navigate = useNavigate();
     const location = useLocation();
     const sidebarRef = useRef<HTMLDivElement>(null);
 
-    // Toggle function for sidebar collapse
+    // Set layout as mounted after first render
+    useEffect(() => {
+        setLayoutMounted(true);
+    }, []);
+
+    // Toggle function for sidebar collapse with persistence
     const handleSidebarToggle = useCallback(() => {
-        setSidebarCollapsed(!sidebarCollapsed);
+        const newCollapsedState = !sidebarCollapsed;
+        setSidebarCollapsed(newCollapsedState);
+        // Persist the state to localStorage
+        localStorage.setItem('adminSidebarCollapsed', JSON.stringify(newCollapsedState));
     }, [sidebarCollapsed]);
 
     // Spring animation for the sidebar
@@ -127,14 +141,137 @@ const AdminLayout = () => {
         api.start({ x: sidebarOpen ? 0 : -320 });
     }, [sidebarOpen, api]);
 
-    const handleLogout = async () => {
+    // Persist sidebar collapsed state to localStorage
+    useEffect(() => {
+        localStorage.setItem('adminSidebarCollapsed', JSON.stringify(sidebarCollapsed));
+    }, [sidebarCollapsed]);
+
+    const handleLogout = useCallback(async () => {
         await logout();
         navigate('/login');
-    };
+    }, [logout, navigate]);
 
     // Get current page title and create breadcrumb
     const currentPage = navigation.find(item => item.href === location.pathname);
     const pageTitle = currentPage?.name || 'Dashboard';
+
+    // Memoize the main content area to prevent unnecessary re-renders
+    const mainContentClasses = useMemo(() =>
+        `flex flex-col flex-1 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`,
+        [sidebarCollapsed]
+    );
+
+    // Memoize main content to prevent unnecessary re-renders
+    const mainContent = useMemo(() => (
+        <main className="flex-1 transition-opacity duration-150 ease-in-out">
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <Outlet />
+                </div>
+            </div>
+        </main>
+    ), []);
+    // Memoize header content to prevent unnecessary re-renders
+    const headerContent = useMemo(() => (
+        <div className="flex-1 px-4 flex justify-between">
+            <div className="flex-1 flex items-center">
+                <div className="flex items-center text-neutral-600">
+                    <Badge variant="outline" size="sm">Admin</Badge>
+                    <ChevronRight className="h-4 w-4 mx-2 text-neutral-400" />
+
+                    {/* Sidebar State Indicator */}
+                    <div className="hidden lg:flex items-center mr-3">
+                        <div className={`
+                            w-2 h-2 rounded-full transition-all duration-300
+                            ${sidebarCollapsed
+                                ? 'bg-amber-400 shadow-amber-400/50'
+                                : 'bg-emerald-400 shadow-emerald-400/50'
+                            } shadow-lg
+                        `} />
+                        <span className="ml-2 text-xs text-neutral-500 font-medium">
+                            {sidebarCollapsed ? 'Compact' : 'Expanded'}
+                        </span>
+                    </div>
+
+                    <div className="group relative">
+                        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900 truncate max-w-[200px] sm:max-w-md">
+                            {pageTitle}
+                        </h1>
+                        {/* Tooltip for truncated text */}
+                        <div className="absolute left-0 -bottom-8 hidden group-hover:block bg-neutral-800 text-white text-sm px-2 py-1 rounded-lg shadow-medium">
+                            {pageTitle}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="ml-4 flex items-center gap-2 sm:gap-4">
+                <span className="hidden sm:inline text-neutral-700 font-medium">Welcome, {user?.name}</span>
+                <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isLoggingOut ? (
+                        <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                        <LogOut size={18} />
+                    )}
+                    <span className="hidden sm:inline">
+                        {isLoggingOut ? 'Logging out...' : 'Logout'}
+                    </span>
+                </button>
+            </div>
+        </div>
+    ), [pageTitle, sidebarCollapsed, user?.name, isLoggingOut, handleLogout]);
+
+    // Memoize navigation items to prevent re-renders
+    const navigationItems = useMemo(() =>
+        navigation.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+                <div key={item.name} className="relative group">
+                    <Link
+                        to={item.href}
+                        className={classNames(
+                            isActive
+                                ? 'bg-primary-50 text-primary-600 border-r-2 border-primary-600'
+                                : 'text-neutral-600 hover:bg-neutral-50 hover:text-primary-600',
+                            'group flex items-center px-2 py-2 text-sm font-medium rounded-xl transition-all duration-200',
+                            sidebarCollapsed ? 'justify-center' : ''
+                        )}
+                        title={sidebarCollapsed ? item.name : ''}
+                    >
+                        <item.icon
+                            className={classNames(
+                                isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
+                                'flex-shrink-0 h-6 w-6 transition-colors duration-200',
+                                sidebarCollapsed ? '' : 'mr-3'
+                            )}
+                        />
+                        {!sidebarCollapsed && item.name}
+                    </Link>
+
+                    {/* Tooltip for collapsed state */}
+                    {sidebarCollapsed && (
+                        <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-neutral-800 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                            {item.name}
+                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-800 rotate-45"></div>
+                        </div>
+                    )}
+                </div>
+            );
+        }), [location.pathname, sidebarCollapsed]
+    );
+
+    // Show minimal loader until layout is mounted to prevent flash
+    if (!layoutMounted) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
@@ -219,7 +356,7 @@ const AdminLayout = () => {
             <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
                 }`}>
                 <div className="flex-1 flex flex-col min-h-0 bg-white border-r border-neutral-200 shadow-soft">
-                    <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                    <div className="flex-1 flex flex-col pt-5 pb-4 ">
                         <div className={`flex items-center flex-shrink-0 ${sidebarCollapsed ? 'px-2 justify-center' : 'px-4'}`}>
                             <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                                 <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center shadow-glow">
@@ -278,84 +415,17 @@ const AdminLayout = () => {
                             )}
                         </div>
                         <nav className="mt-5 flex-1 px-2 space-y-1">
-                            {navigation.map((item) => {
-                                const isActive = location.pathname === item.href;
-                                return (
-                                    <div key={item.name} className="relative group">
-                                        <Link
-                                            to={item.href}
-                                            className={classNames(
-                                                isActive
-                                                    ? 'bg-primary-50 text-primary-600 border-r-2 border-primary-600'
-                                                    : 'text-neutral-600 hover:bg-neutral-50 hover:text-primary-600',
-                                                'group flex items-center px-2 py-2 text-sm font-medium rounded-xl transition-all duration-200',
-                                                sidebarCollapsed ? 'justify-center' : ''
-                                            )}
-                                            title={sidebarCollapsed ? item.name : ''}
-                                        >
-                                            <item.icon
-                                                className={classNames(
-                                                    isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600',
-                                                    'flex-shrink-0 h-6 w-6 transition-colors duration-200',
-                                                    sidebarCollapsed ? '' : 'mr-3'
-                                                )}
-                                            />
-                                            {!sidebarCollapsed && item.name}
-                                        </Link>
-
-                                        {/* Tooltip for collapsed state */}
-                                        {sidebarCollapsed && (
-                                            <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-3 py-2 bg-neutral-800 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                                                {item.name}
-                                                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-800 rotate-45"></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                            {navigationItems}
                         </nav>
                     </div>
                 </div>
 
-                {/* Floating Edge Toggle Button */}
-                <button
-                    onClick={handleSidebarToggle}
-                    className={`
-                        absolute top-1/2 -translate-y-1/2 z-50
-                        -right-3
-                        w-6 h-12
-                        bg-white hover:bg-primary-50
-                        border border-neutral-200 hover:border-primary-300
-                        rounded-r-lg shadow-lg hover:shadow-xl
-                        flex items-center justify-center
-                        transition-all duration-300 ease-in-out
-                        transform hover:scale-110 active:scale-95
-                        focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
-                        group overflow-hidden
-                    `}
-                    title={`${sidebarCollapsed ? 'Expand' : 'Collapse'} Sidebar (Ctrl+B)`}
-                >
-                    {/* Animated background */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-primary-500/0 via-primary-500/10 to-primary-500/0 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-500" />
-
-                    {/* Icon with rotation animation */}
-                    <div className="relative">
-                        {sidebarCollapsed ? (
-                            <ChevronRight className="h-3 w-3 text-neutral-600 group-hover:text-primary-600 transition-all duration-200 transform group-hover:scale-125" />
-                        ) : (
-                            <PanelLeftClose className="h-3 w-3 text-neutral-600 group-hover:text-primary-600 transition-all duration-200 transform group-hover:scale-125 group-hover:rotate-180" />
-                        )}
-                    </div>
-
-                    {/* Pulse effect on hover */}
-                    <div className="absolute inset-0 rounded-r-lg bg-primary-400/20 scale-0 group-hover:scale-100 transition-transform duration-300" />
-                </button>
             </div>
 
             {/* Main content */}
-            <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'
-                }`}>
-                <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow-soft border-b border-neutral-200">
+            <div className={mainContentClasses}>
+                {/* Static Header - will not re-render during navigation */}
+                <header className="sticky top-0 z-2 flex-shrink-0 flex h-16 bg-white shadow-soft border-b border-neutral-200">
                     <button
                         type="button"
                         className="px-4 border-r border-neutral-200 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden transition-colors"
@@ -364,65 +434,11 @@ const AdminLayout = () => {
                         <Menu className="h-6 w-6" />
                     </button>
 
-                    <div className="flex-1 px-4 flex justify-between">
-                        <div className="flex-1 flex items-center">
-                            <div className="flex items-center text-neutral-600">
-                                <Badge variant="outline" size="sm">Admin</Badge>
-                                <ChevronRight className="h-4 w-4 mx-2 text-neutral-400" />
+                    {headerContent}
+                </header>
 
-                                {/* Sidebar State Indicator */}
-                                <div className="hidden lg:flex items-center mr-3">
-                                    <div className={`
-                                        w-2 h-2 rounded-full transition-all duration-300
-                                        ${sidebarCollapsed
-                                            ? 'bg-amber-400 shadow-amber-400/50'
-                                            : 'bg-emerald-400 shadow-emerald-400/50'
-                                        } shadow-lg
-                                    `} />
-                                    <span className="ml-2 text-xs text-neutral-500 font-medium">
-                                        {sidebarCollapsed ? 'Compact' : 'Expanded'}
-                                    </span>
-                                </div>
-
-                                <div className="group relative">
-                                    <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900 truncate max-w-[200px] sm:max-w-md">
-                                        {pageTitle}
-                                    </h1>
-                                    {/* Tooltip for truncated text */}
-                                    <div className="absolute left-0 -bottom-8 hidden group-hover:block bg-neutral-800 text-white text-sm px-2 py-1 rounded-lg shadow-medium">
-                                        {pageTitle}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="ml-4 flex items-center gap-2 sm:gap-4">
-                            <span className="hidden sm:inline text-neutral-700 font-medium">Welcome, {user?.name}</span>
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm text-error-600 hover:text-error-800 hover:bg-error-50 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isLoggingOut ? (
-                                    <Loader2 size={18} className="animate-spin" />
-                                ) : (
-                                    <LogOut size={18} />
-                                )}
-                                <span className="hidden sm:inline">
-                                    {isLoggingOut ? 'Logging out...' : 'Logout'}
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <main className="flex-1">
-                    <div className="py-6">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <Outlet />
-                        </div>
-                    </div>
-                </main>
+                {/* Main content area - only this section will change during navigation */}
+                {mainContent}
             </div>
         </div>
     );

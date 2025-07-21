@@ -68,7 +68,8 @@ export const API_CONFIG = {
       COMPANY: '/api/combo/contacts', // For company names
       COUNTRY: '/api/combo/country',   // For countries
       DEPARTMENT: '/api/combo/department', // For departments
-      COMPANY_TYPE: '/api/combo/company-type' // For company types
+      PRODUCT_TYPE: '/api/combo/product-type', // For product types (backend endpoint may not exist yet)
+      REGION: '/api/combo/region' // For regions
     }
   }
 };

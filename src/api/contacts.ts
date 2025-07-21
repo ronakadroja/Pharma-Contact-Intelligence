@@ -7,12 +7,13 @@ export interface Contact {
     person_name: string;
     department: string;
     designation: string;
-    company_type: string;
+    product_type: string;
     email: string;
     phone: string;
     city: string;
     person_country: string;
     company_country: string;
+    region: string;
     reference: string;
     person_linkedin_url: string;
     company_linkedin_url: string;
@@ -42,13 +43,15 @@ export interface ContactsResponse {
 }
 
 export interface ContactSearchParams {
-    company_id?: number;
+    company_id?: number | string[] | string;
+    company_name?: string[] | string;
     person_name?: string;
-    department?: string;
+    department?: string[] | string;
     designation?: string;
-    company_type?: string;
-    person_country?: string;
-    company_country?: string;
+    product_type?: string[] | string;
+    person_country?: string[] | string;
+    company_country?: string[] | string;
+    region?: string[] | string;
     city?: string;
     page?: number;
     per_page?: number;
@@ -56,12 +59,59 @@ export interface ContactSearchParams {
 
 export const getContacts = async (params?: ContactSearchParams): Promise<ContactsResponse> => {
     try {
-        // Filter out empty string values from params
-        const filteredParams = params ? Object.fromEntries(
-            Object.entries(params).filter(([_, value]) => value !== '')
-        ) : {};
+        // Process params to handle arrays properly
+        const processedParams: Record<string, any> = {};
 
-        const response = await api.get<ContactsResponse>(getContactUrl('BASE'), { params: filteredParams });
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    // Send arrays as they are - axios will handle the serialization
+                    if (value.length > 0) {
+                        processedParams[key] = value;
+                    }
+                } else if (value !== '' && value !== undefined && value !== null) {
+                    processedParams[key] = value;
+                }
+            });
+        }
+
+        const response = await api.get<ContactsResponse>(getContactUrl('BASE'), {
+            params: processedParams,
+            paramsSerializer: (params) => {
+                // Use URLSearchParams to properly serialize arrays with bracket notation
+                const searchParams = new URLSearchParams();
+
+                // Define which fields should be treated as arrays
+                const arrayFields = [
+                    'company_name',
+                    'department',
+                    'product_type',
+                    'person_country',
+                    'company_country',
+                    'region'
+                ];
+
+                Object.entries(params).forEach(([key, value]) => {
+                    if (Array.isArray(value) && arrayFields.includes(key)) {
+                        // Send dropdown arrays with bracket notation for PHP/Laravel backend
+                        // This creates: company_name[]=value1&company_name[]=value2
+                        value.forEach(item => {
+                            searchParams.append(`${key}[]`, String(item));
+                        });
+                    } else if (Array.isArray(value)) {
+                        // Handle other arrays (if any) without brackets
+                        value.forEach(item => {
+                            searchParams.append(key, String(item));
+                        });
+                    } else {
+                        // Handle non-array parameters normally
+                        searchParams.append(key, String(value));
+                    }
+                });
+
+                return searchParams.toString();
+            }
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching contacts:', error);
@@ -74,12 +124,13 @@ export interface ContactPayload {
     person_name: string;
     department: string;
     designation: string;
-    company_type: string;
+    product_type: string;
     email: string;
     phone?: string;
     city?: string;
     person_country: string;
     company_country: string;
+    region?: string;
     reference?: string;
     person_linkedin_url?: string;
     company_linkedin_url: string;
@@ -149,12 +200,13 @@ export interface SavedContactsResponse {
         person_name: string;
         department: string;
         designation: string;
-        company_type: string | null;
+        product_type: string | null;
         email: string;
         phone_number: string;
         city: string;
         person_country: string;
         company_country: string;
+        region: string;
         person_linkedin_url: string | null;
         company_linkedin_url: string | null;
         company_website: string | null;

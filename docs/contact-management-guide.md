@@ -46,7 +46,7 @@ The Contact Management system provides comprehensive tools for managing pharmace
   - Validation: Required, minimum 2 characters
   - Example: "Pfizer Inc."
 
-- **Company Type**: Type/category of the company
+- **Product Type**: Type/category of the company's products
   - Format: Text input or dropdown
   - Validation: Required
   - Example: "Pharmaceutical Manufacturer"
@@ -208,7 +208,7 @@ The Contact Management system provides comprehensive tools for managing pharmace
 - `person_name`: Contact person name
 - `department`: Department/division
 - `designation`: Job title
-- `company_type`: Type of company
+- `product_type`: Type of company's products
 - `email`: Email address
 - `person_country`: Person's country
 - `company_country`: Company's country

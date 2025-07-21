@@ -1,8 +1,8 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import { Check, CheckCircle, Filter, Linkedin, Mail, Phone, Plus, X, XCircle } from "lucide-react";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { getContacts, revealContact, type Contact as APIContact } from "../../api/contacts";
-import { fetchCompanies, fetchCountries, fetchDepartments, fetchCompanyTypes, type CompanyOption } from "../../api/combo";
+import { fetchCompanies, fetchCountries, fetchDepartments, fetchProductTypes, fetchRegions, type CompanyOption } from "../../api/combo";
 import FilterPanel from "../../components/FilterPanel";
 import Header from "../../components/Header";
 import Table from "../../components/Table";
@@ -12,13 +12,14 @@ import { useToast } from "../../context/ToastContext";
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 
 interface FilterState {
-    company_name: string;
+    company_name: string[] | string;
     person_name: string;
-    department: string;
+    department: string[] | string;
     designation: string;
-    company_type: string;
-    person_country: string;
-    company_country: string;
+    product_type: string[] | string;
+    person_country: string[] | string;
+    company_country: string[] | string;
+    region: string[] | string;
     city: string;
 }
 
@@ -32,14 +33,25 @@ const ListingPage = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     const [showFilters, setShowFilters] = useState(true); // true = visible by default
-    const [searchParams, setSearchParams] = useState({
-        company_name: '',
+    const [searchParams, setSearchParams] = useState<{
+        company_name: string[] | string;
+        person_name: string;
+        department: string[] | string;
+        designation: string;
+        product_type: string[] | string;
+        person_country: string[] | string;
+        company_country: string[] | string;
+        region: string[] | string;
+        city: string;
+    }>({
+        company_name: [],
         person_name: '',
-        department: '',
+        department: [],
         designation: '',
-        company_type: '',
-        person_country: '',
-        company_country: '',
+        product_type: [],
+        person_country: [],
+        company_country: [],
+        region: [],
         city: '',
     });
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -48,21 +60,26 @@ const ListingPage = () => {
     const [dropdownData, setDropdownData] = useState<{
         companies: CompanyOption[];
         departments: CompanyOption[];
-        companyTypes: CompanyOption[];
+        productTypes: CompanyOption[];
         countries: CompanyOption[];
+        regions: CompanyOption[];
         isLoaded: boolean;
         isLoading: boolean;
     }>({
         companies: [],
         departments: [],
-        companyTypes: [],
+        productTypes: [],
         countries: [],
+        regions: [],
         isLoaded: false,
         isLoading: false,
     });
 
     const { showToast } = useToast();
     const { setCoins, coins } = useAppContext();
+
+    // Ref to track if dropdown data loading has been initiated
+    const dropdownLoadingInitiated = useRef(false);
 
     const handleRevealContact = useCallback(async (contact: APIContact) => {
         try {
@@ -292,20 +309,20 @@ const ListingPage = () => {
                     <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
                         {row.original.department}
                     </div>
-                    <div className="text-xs text-gray-600 truncate" title={row.original.company_type}>
-                        {row.original.company_type}
+                    <div className="text-xs text-gray-600 truncate" title={row.original.product_type}>
+                        {row.original.product_type}
                     </div>
                 </div>
             ),
         },
         {
-            accessorKey: 'company_type',
-            header: 'Country Type',
+            accessorKey: 'product_type',
+            header: 'Product Type',
             size: 140,
             cell: ({ row }) => (
                 <div className="min-w-0 max-w-[140px]">
-                    <div className="text-sm text-gray-900 truncate" title={row.original.company_type}>
-                        {row.original.company_type}
+                    <div className="text-sm text-gray-900 truncate" title={row.original.product_type}>
+                        {row.original.product_type}
                     </div>
                 </div>
             ),
@@ -322,6 +339,18 @@ const ListingPage = () => {
                 </div>
             ),
         },
+        {
+            accessorKey: 'region',
+            header: 'Region',
+            size: 120,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[120px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.region}>
+                        {row.original.region}
+                    </div>
+                </div>
+            ),
+        },
 
     ], [handleRevealContact, coins]);
 
@@ -332,9 +361,17 @@ const ListingPage = () => {
                 setIsLoading(true);
             }
 
-            // API params - company_name is already a comma-separated string from FilterPanel
+            // Send arrays directly to API - axios will handle proper serialization
             const apiParams = {
-                ...searchParams,
+                company_name: searchParams.company_name,
+                person_name: searchParams.person_name,
+                department: searchParams.department,
+                designation: searchParams.designation,
+                product_type: searchParams.product_type,
+                person_country: searchParams.person_country,
+                company_country: searchParams.company_country,
+                region: searchParams.region,
+                city: searchParams.city,
                 page,
                 per_page: ITEMS_PER_PAGE
             };
@@ -375,25 +412,29 @@ const ListingPage = () => {
 
     // Load dropdown data once when filters are first shown
     const loadDropdownData = useCallback(async () => {
-        if (dropdownData.isLoaded || dropdownData.isLoading) {
-            return; // Already loaded or loading
+        // Prevent multiple simultaneous calls
+        if (dropdownLoadingInitiated.current) {
+            return;
         }
 
+        dropdownLoadingInitiated.current = true;
         setDropdownData(prev => ({ ...prev, isLoading: true }));
 
         try {
-            const [companies, departments, companyTypes, countries] = await Promise.all([
+            const [companies, departments, productTypes, countries, regions] = await Promise.all([
                 fetchCompanies(),
                 fetchDepartments(),
-                fetchCompanyTypes(),
-                fetchCountries()
+                fetchProductTypes(),
+                fetchCountries(),
+                fetchRegions()
             ]);
 
             setDropdownData({
                 companies,
                 departments,
-                companyTypes,
+                productTypes,
                 countries,
+                regions,
                 isLoaded: true,
                 isLoading: false,
             });
@@ -405,11 +446,14 @@ const ListingPage = () => {
                 // Keep previous data if any, or set empty arrays
                 companies: prev.companies,
                 departments: prev.departments,
-                companyTypes: prev.companyTypes,
+                productTypes: prev.productTypes,
                 countries: prev.countries,
+                regions: prev.regions,
             }));
+            // Reset the flag on error so it can be retried
+            dropdownLoadingInitiated.current = false;
         }
-    }, [dropdownData.isLoaded, dropdownData.isLoading]);
+    }, []); // Empty dependencies to prevent recreation
 
     // Infinite scroll hook
     const loadMoreContacts = useCallback(async () => {
@@ -458,10 +502,10 @@ const ListingPage = () => {
 
     // Load dropdown data when filters are shown for the first time
     useEffect(() => {
-        if (showFilters && !dropdownData.isLoaded && !dropdownData.isLoading) {
+        if (showFilters && !dropdownLoadingInitiated.current) {
             loadDropdownData();
         }
-    }, [showFilters, dropdownData.isLoaded, dropdownData.isLoading, loadDropdownData]);
+    }, [showFilters, loadDropdownData]);
 
     const handleFilter = useCallback((filters: FilterState) => {
         const previousFilters = { ...searchParams };
@@ -470,16 +514,27 @@ const ListingPage = () => {
             person_name: filters.person_name,
             department: filters.department,
             designation: filters.designation,
-            company_type: filters.company_type,
+            product_type: filters.product_type,
             person_country: filters.person_country,
             company_country: filters.company_country,
+            region: filters.region,
             city: filters.city,
         };
 
 
         // Check if filters are being cleared
-        const isClearing = Object.values(newFilters).every(value => value === '');
-        const wasFiltered = Object.values(previousFilters).some(value => value !== '');
+        const isClearing = Object.values(newFilters).every(value => {
+            if (Array.isArray(value)) {
+                return value.length === 0;
+            }
+            return value === '';
+        });
+        const wasFiltered = Object.values(previousFilters).some(value => {
+            if (Array.isArray(value)) {
+                return value.length > 0;
+            }
+            return value !== '';
+        });
 
         setSearchParams(newFilters);
 
@@ -488,7 +543,12 @@ const ListingPage = () => {
             // This will be handled by the useEffect above
         } else if (!isClearing) {
             // Filters are being applied
-            const activeFilterCount = Object.values(newFilters).filter(value => value !== '').length;
+            const activeFilterCount = Object.values(newFilters).filter(value => {
+                if (Array.isArray(value)) {
+                    return value.length > 0;
+                }
+                return value !== '';
+            }).length;
             showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`, 'success');
         }
     }, [searchParams, showToast]);

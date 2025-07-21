@@ -1,8 +1,9 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
+// Import AdminLayout directly (not lazy) to prevent full screen refresh
 import AdminLayout from "../components/layouts/AdminLayout";
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 // Lazy load components
 const LoginPage = lazy(() => import("../pages/LoginPage"));
@@ -15,10 +16,17 @@ const UserProfile = lazy(() => import("../pages/UserProfile"));
 const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
 const ContactManagement = lazy(() => import("../pages/admin/ContactManagement"));
 
-// Loading fallback
+// Loading fallback for full screen
 const LoadingFallback = () => (
     <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+);
+
+// Loading fallback for admin content area only
+const AdminContentLoader = () => (
+    <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
     </div>
 );
 
@@ -69,88 +77,122 @@ const AppRoutes = () => {
     const { user } = useAppContext();
 
     return (
-        <AnimatePresence mode="wait">
-            <Suspense fallback={<LoadingFallback />}>
-                <Routes>
-                    <Route path="/" element={
-                        user ?
-                            <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/dashboard'} />
-                            : <Navigate to="/login" />
-                    } />
+        <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+                <Route path="/" element={
+                    user ?
+                        <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/dashboard'} />
+                        : <Navigate to="/login" />
+                } />
 
-                    <Route path="/login" element={
-                        user ? <Navigate to="/" /> : (
-                            <PageTransition>
-                                <LoginPage />
-                            </PageTransition>
-                        )
-                    } />
+                <Route path="/login" element={
+                    user ? <Navigate to="/" /> : (
+                        <PageTransition>
+                            <LoginPage />
+                        </PageTransition>
+                    )
+                } />
 
-                    {/* Admin Routes */}
-                    <Route path="/admin" element={
-                        <ProtectedRoute allowedRoles={['admin']}>
-                            <AdminLayout />
-                        </ProtectedRoute>
-                    }>
-                        <Route path="dashboard" element={
+                {/* Admin Routes */}
+                <Route path="/admin" element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminLayout />
+                    </ProtectedRoute>
+                }>
+                    <Route path="dashboard" element={
+                        <Suspense fallback={<AdminContentLoader />}>
                             <PageTransition>
                                 <AdminDashboard />
                             </PageTransition>
-                        } />
-                        <Route path="users" element={
+                        </Suspense>
+                    } />
+                    <Route path="users" element={
+                        <Suspense fallback={<AdminContentLoader />}>
                             <PageTransition>
                                 <UserManagement />
                             </PageTransition>
-                        } />
-                        <Route path="contacts" element={
+                        </Suspense>
+                    } />
+                    <Route path="contacts" element={
+                        <Suspense fallback={<AdminContentLoader />}>
                             <PageTransition>
                                 <ContactManagement />
                             </PageTransition>
-                        } />
-                    </Route>
-
-                    {/* User Routes */}
-                    <Route path="/*" element={
-                        <ProtectedRoute allowedRoles={['user']}>
-                            <Routes>
-                                <Route path="dashboard" element={
-                                    <PageTransition>
-                                        <UserDashboard />
-                                    </PageTransition>
-                                } />
-                                <Route path="listing" element={
-                                    <PageTransition>
-                                        <ListingPage />
-                                    </PageTransition>
-                                } />
-                                <Route path="detail/:id" element={
-                                    <PageTransition>
-                                        <DetailPage />
-                                    </PageTransition>
-                                } />
-                                <Route path="my-list" element={
-                                    <PageTransition>
-                                        <MyListPage />
-                                    </PageTransition>
-                                } />
-                                <Route path="profile" element={
-                                    <PageTransition>
-                                        <UserProfile />
-                                    </PageTransition>
-                                } />
-                            </Routes>
-                        </ProtectedRoute>
+                        </Suspense>
                     } />
-
-                    {/* 404 Route */}
-                    <Route path="*" element={
-                        <PageTransition>
-                            <NotFoundPage />
-                        </PageTransition>
+                    <Route path="credits" element={
+                        <Suspense fallback={<AdminContentLoader />}>
+                            <PageTransition>
+                                <div className="p-6">
+                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Credit Management</h1>
+                                    <p className="text-gray-600">Credit management functionality coming soon...</p>
+                                </div>
+                            </PageTransition>
+                        </Suspense>
                     } />
-                </Routes>
-            </Suspense>
-        </AnimatePresence>
+                    <Route path="upload" element={
+                        <Suspense fallback={<AdminContentLoader />}>
+                            <PageTransition>
+                                <div className="p-6">
+                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Bulk Upload</h1>
+                                    <p className="text-gray-600">Bulk upload functionality coming soon...</p>
+                                </div>
+                            </PageTransition>
+                        </Suspense>
+                    } />
+                    <Route path="settings" element={
+                        <Suspense fallback={<AdminContentLoader />}>
+                            <PageTransition>
+                                <div className="p-6">
+                                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Settings</h1>
+                                    <p className="text-gray-600">Settings functionality coming soon...</p>
+                                </div>
+                            </PageTransition>
+                        </Suspense>
+                    } />
+                </Route>
+
+                {/* User Routes */}
+                <Route path="/*" element={
+                    <ProtectedRoute allowedRoles={['user']}>
+                        <Routes>
+                            <Route path="dashboard" element={
+                                <PageTransition>
+                                    <UserDashboard />
+                                </PageTransition>
+                            } />
+                            <Route path="listing" element={
+                                <PageTransition>
+                                    <ListingPage />
+                                </PageTransition>
+                            } />
+                            <Route path="detail/:id" element={
+                                <PageTransition>
+                                    <DetailPage />
+                                </PageTransition>
+                            } />
+                            <Route path="my-list" element={
+                                <PageTransition>
+                                    <MyListPage />
+                                </PageTransition>
+                            } />
+                            <Route path="profile" element={
+                                <PageTransition>
+                                    <UserProfile />
+                                </PageTransition>
+                            } />
+                        </Routes>
+                    </ProtectedRoute>
+                } />
+
+                {/* 404 Route */}
+                <Route path="*" element={
+                    <PageTransition>
+                        <NotFoundPage />
+                    </PageTransition>
+                } />
+            </Routes>
+        </Suspense>
     );
 };
 

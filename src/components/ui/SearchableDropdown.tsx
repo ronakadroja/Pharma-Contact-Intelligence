@@ -103,7 +103,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   };
 
   const handleSelect = (option: DropdownOption) => {
-    onChange(option.name);
+    onChange(option.id);
     setIsOpen(false);
     setSearchTerm('');
     setHighlightedIndex(-1);

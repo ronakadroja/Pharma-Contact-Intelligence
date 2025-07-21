@@ -42,7 +42,7 @@ const ContactManagement = () => {
     // Filter state - Updated for multiselect
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState({
-        company_id: [] as string[], // This will store company IDs
+        company_name: [] as string[], // This will store company names
         department: [] as string[],
         person_country: [] as string[]
     });
@@ -60,6 +60,34 @@ const ContactManagement = () => {
         isLoaded: false,
         isLoading: false
     });
+    // Track sidebar state from localStorage to sync with AdminLayout
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        const saved = localStorage.getItem('adminSidebarCollapsed');
+        return saved ? JSON.parse(saved) : false;
+    });
+
+    // Ref to track if combo data loading has been initiated
+    const comboLoadingInitiated = useRef(false);
+
+    // Listen for sidebar state changes from AdminLayout
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const saved = localStorage.getItem('adminSidebarCollapsed');
+            const newState = saved ? JSON.parse(saved) : false;
+            setSidebarCollapsed(prevState => prevState !== newState ? newState : prevState);
+        };
+
+        // Listen for storage changes (when AdminLayout updates the state)
+        window.addEventListener('storage', handleStorageChange);
+
+        // Check for changes more efficiently - only when needed
+        const interval = setInterval(handleStorageChange, 200);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, []);
 
 
 
@@ -171,20 +199,20 @@ const ContactManagement = () => {
                     <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
                         {row.original.department}
                     </div>
-                    <div className="text-xs text-gray-600 truncate" title={row.original.company_type}>
-                        {row.original.company_type}
+                    <div className="text-xs text-gray-600 truncate" title={row.original.product_type}>
+                        {row.original.product_type}
                     </div>
                 </div>
             ),
         },
         {
-            accessorKey: 'company_type',
-            header: 'Country Type',
+            accessorKey: 'product_type',
+            header: 'Product Type',
             size: 140,
             cell: ({ row }) => (
                 <div className="min-w-0 max-w-[140px]">
-                    <div className="text-sm text-gray-900 truncate" title={row.original.company_type}>
-                        {row.original.company_type}
+                    <div className="text-sm text-gray-900 truncate" title={row.original.product_type}>
+                        {row.original.product_type}
                     </div>
                 </div>
             ),
@@ -201,6 +229,7 @@ const ContactManagement = () => {
                 </div>
             ),
         },
+
         {
             id: 'actions',
             header: 'Actions',
@@ -233,9 +262,13 @@ const ContactManagement = () => {
                 setIsLoading(true);
             }
 
+            // Send arrays directly to API - axios will handle proper serialization
             const response = await getContacts({
                 page,
-                per_page: ITEMS_PER_PAGE
+                per_page: ITEMS_PER_PAGE,
+                company_name: filters.company_name,
+                department: filters.department,
+                person_country: filters.person_country
             });
 
             // Handle cumulative data for infinite scroll
@@ -268,12 +301,16 @@ const ContactManagement = () => {
                 setIsLoading(false);
             }
         }
-    }, [showToast]);
+    }, [showToast, filters.company_name, filters.department, filters.person_country]);
 
     // Load combo data for dropdowns
     const loadComboData = useCallback(async () => {
-        if (dropdownData.isLoaded || dropdownData.isLoading) return;
+        // Prevent multiple simultaneous calls
+        if (comboLoadingInitiated.current) {
+            return;
+        }
 
+        comboLoadingInitiated.current = true;
         console.log('Loading combo data...');
         setDropdownData(prev => ({ ...prev, isLoading: true }));
 
@@ -295,8 +332,10 @@ const ContactManagement = () => {
             console.error('Failed to load combo data:', error);
             showToast('Failed to load filter options. Please try again.', 'error');
             setDropdownData(prev => ({ ...prev, isLoading: false }));
+            // Reset the flag on error so it can be retried
+            comboLoadingInitiated.current = false;
         }
-    }, [dropdownData.isLoaded, dropdownData.isLoading, showToast]);
+    }, [showToast]);
 
 
 
@@ -322,15 +361,14 @@ const ContactManagement = () => {
     useEffect(() => {
         console.log('Filter visibility changed:', {
             showFilters,
-            isLoaded: dropdownData.isLoaded,
-            isLoading: dropdownData.isLoading
+            comboLoadingInitiated: comboLoadingInitiated.current
         });
 
-        if (showFilters && !dropdownData.isLoaded && !dropdownData.isLoading) {
+        if (showFilters && !comboLoadingInitiated.current) {
             console.log('Triggering combo data load...');
             loadComboData();
         }
-    }, [showFilters, dropdownData.isLoaded, dropdownData.isLoading, loadComboData]);
+    }, [showFilters, loadComboData]);
 
     // Initial fetch on mount
     useEffect(() => {
@@ -339,8 +377,8 @@ const ContactManagement = () => {
 
     // Filter handling functions for multiselect
     const handleCompanySelect = useCallback((selectedList: CompanyOption[]) => {
-        const companyIds = selectedList.map(item => item.id);
-        setFilters(prev => ({ ...prev, company_id: companyIds }));
+        const companyNames = selectedList.map(item => item.name);
+        setFilters(prev => ({ ...prev, company_name: companyNames }));
     }, []);
 
     const handleDepartmentSelect = useCallback((selectedList: CompanyOption[]) => {
@@ -353,54 +391,38 @@ const ContactManagement = () => {
         setFilters(prev => ({ ...prev, person_country: countryNames }));
     }, []);
 
+
+
     // Search function to apply filters
     const handleSearchWithFilters = useCallback(async () => {
-        // Convert array filters to comma-separated strings for API
-        const apiFilters = {
-            company_id: filters.company_id.join(','),
-            department: filters.department.join(','),
-            person_country: filters.person_country.join(',')
-        };
-
         // Reset pagination and data
         setCurrentPage(1);
         setAllContacts([]);
         setHasMoreData(true);
-        setIsLoading(true);
 
-        try {
-            const response = await getContacts({
-                page: 1,
-                per_page: ITEMS_PER_PAGE,
-                ...apiFilters
-            });
+        // Use fetchContacts which now includes filter logic
+        await fetchContacts(1, false, false);
 
-            if (response && response.data) {
-                setAllContacts(response.data || []);
-                setTotalItems(response.total || 0);
-                setHasMoreData((response.current_page || 1) < (response.last_page || 1));
+        // Close filters panel after successful search
+        setShowFilters(false);
 
-                const activeFilterCount = filters.company_id.length + filters.department.length + filters.person_country.length;
-                if (activeFilterCount > 0) {
-                    showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''} - Found ${response.total || 0} contacts`, 'success');
-                } else {
-                    showToast(`Search completed - Found ${response.total || 0} contacts`, 'success');
-                }
-            }
-        } catch (error) {
-            console.error('Search failed:', error);
-            showToast('Search failed. Please try again.', 'error');
-        } finally {
-            setIsLoading(false);
+        // Show success message
+        const activeFilterCount = filters.company_name.length + filters.department.length + filters.person_country.length;
+        if (activeFilterCount > 0) {
+            showToast(`Applied ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}`, 'success');
+        } else {
+            showToast('Search completed', 'success');
         }
-    }, [filters, showToast]);
+    }, [filters, showToast, fetchContacts]);
 
     const clearFilters = useCallback(() => {
         setFilters({
-            company_id: [], // Clear company IDs
+            company_name: [], // Clear company names
             department: [],
             person_country: []
         });
+        // Close filters panel after clearing
+        setShowFilters(false);
         showToast('Filters cleared', 'success');
     }, [showToast]);
 
@@ -590,7 +612,9 @@ const ContactManagement = () => {
     // };
 
     return (
-        <div className="fixed inset-0 top-16 left-64 bg-gray-50 overflow-hidden" ref={containerRef}>
+        <div className="fixed inset-0 top-16 bg-gray-50 overflow-hidden transition-all duration-300 ease-in-out"
+            style={{ left: `${sidebarCollapsed ? '64px' : '256px'}` }}
+            ref={containerRef}>
             <div className="h-full p-6">
                 <div className="flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden h-full">
                     {/* Header Section - Fixed at top */}
@@ -655,7 +679,7 @@ const ContactManagement = () => {
                                     <Multiselect
                                         options={dropdownData.companies}
                                         selectedValues={dropdownData.companies.filter(company =>
-                                            filters.company_id.includes(company.id)
+                                            filters.company_name.includes(company.name)
                                         )}
                                         onSelect={handleCompanySelect}
                                         onRemove={handleCompanySelect}
@@ -826,13 +850,15 @@ const ContactManagement = () => {
                                         }}
                                     />
                                 </div>
+
+
                             </div>
 
                             {/* Filter Actions */}
                             <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
                                 <div className="text-sm text-gray-600">
                                     {(() => {
-                                        const totalFilters = filters.company_id.length + filters.department.length + filters.person_country.length;
+                                        const totalFilters = filters.company_name.length + filters.department.length + filters.person_country.length;
                                         return totalFilters > 0 ? (
                                             <span className="text-blue-600 font-medium">
                                                 {totalFilters} filter(s) selected
@@ -848,7 +874,7 @@ const ContactManagement = () => {
                                         variant="outline"
                                         size="sm"
                                         icon={<X size={16} />}
-                                        disabled={filters.company_id.length === 0 && filters.department.length === 0 && filters.person_country.length === 0}
+                                        disabled={filters.company_name.length === 0 && filters.department.length === 0 && filters.person_country.length === 0}
                                     >
                                         Clear All
                                     </Button>

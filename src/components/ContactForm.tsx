@@ -9,7 +9,7 @@ import {
     type FormErrors
 } from '../utils/validation';
 import CustomizableDropdown from './ui/CustomizableDropdown';
-import { fetchCountries, fetchDepartments, fetchCompanyTypes, type CompanyOption } from '../api/combo';
+import { fetchCountries, fetchDepartments, fetchProductTypes, fetchRegions, type CompanyOption } from '../api/combo';
 
 interface ContactFormProps {
     contact?: Contact | null;
@@ -26,21 +26,24 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
     // Combo data states
     const [countries, setCountries] = useState<CompanyOption[]>([]);
     const [departments, setDepartments] = useState<CompanyOption[]>([]);
-    const [companyTypes, setCompanyTypes] = useState<CompanyOption[]>([]);
+    const [productTypes, setProductTypes] = useState<CompanyOption[]>([]);
+    const [regions, setRegions] = useState<CompanyOption[]>([]);
     const [isLoadingCountries, setIsLoadingCountries] = useState(false);
     const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
-    const [isLoadingCompanyTypes, setIsLoadingCompanyTypes] = useState(false);
+    const [isLoadingProductTypes, setIsLoadingProductTypes] = useState(false);
+    const [isLoadingRegions, setIsLoadingRegions] = useState(false);
     const [formData, setFormData] = useState({
         company_name: contact?.company_name || '',
         person_name: contact?.person_name || '',
         department: contact?.department || '',
         designation: contact?.designation || '',
-        company_type: contact?.company_type || '',
+        product_type: contact?.product_type || '',
         email: contact?.email || '',
         phone: contact?.phone || '',
         city: contact?.city || '',
         person_country: contact?.person_country || '',
         company_country: contact?.company_country || '',
+        region: contact?.region || '',
         reference: contact?.reference || '',
         person_linkedin_url: contact?.person_linkedin_url || '',
         company_linkedin_url: contact?.company_linkedin_url || '',
@@ -74,15 +77,26 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                 setIsLoadingDepartments(false);
             }
 
-            // Load company types
-            setIsLoadingCompanyTypes(true);
+            // Load product types
+            setIsLoadingProductTypes(true);
             try {
-                const companyTypesData = await fetchCompanyTypes();
-                setCompanyTypes(companyTypesData);
+                const productTypesData = await fetchProductTypes();
+                setProductTypes(productTypesData);
             } catch (error) {
-                console.error('Failed to load company types:', error);
+                console.error('Failed to load product types:', error);
             } finally {
-                setIsLoadingCompanyTypes(false);
+                setIsLoadingProductTypes(false);
+            }
+
+            // Load regions
+            setIsLoadingRegions(true);
+            try {
+                const regionsData = await fetchRegions();
+                setRegions(regionsData);
+            } catch (error) {
+                console.error('Failed to load regions:', error);
+            } finally {
+                setIsLoadingRegions(false);
             }
         };
 
@@ -97,12 +111,13 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                 person_name: contact.person_name || '',
                 department: contact.department || '',
                 designation: contact.designation || '',
-                company_type: contact.company_type || '',
+                product_type: contact.product_type || '',
                 email: contact.email || '',
                 phone: contact.phone || '',
                 city: contact.city || '',
                 person_country: contact.person_country || '',
                 company_country: contact.company_country || '',
+                region: contact.region || '',
                 reference: contact.reference || '',
                 person_linkedin_url: contact.person_linkedin_url || '',
                 company_linkedin_url: contact.company_linkedin_url || '',
@@ -116,12 +131,13 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                 person_name: '',
                 department: '',
                 designation: '',
-                company_type: '',
+                product_type: '',
                 email: '',
                 phone: '',
                 city: '',
                 person_country: '',
                 company_country: '',
+                region: '',
                 reference: '',
                 person_linkedin_url: '',
                 company_linkedin_url: '',
@@ -154,10 +170,10 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
     };
 
     // Define required fields
-    const requiredFields = ['company_name', 'person_name', 'person_country', 'department', 'email'];
+    const requiredFields = ['company_name', 'person_name', 'person_country', 'department'];
 
     // Validate individual field
-    const validateField = (name: string, value: string): string => {
+    const validateField = (name: string, value: string): any => {
         switch (name) {
             case 'company_name':
                 return validateRequired(value, 'Company name').error || '';
@@ -168,18 +184,18 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
             case 'designation':
                 // Not required anymore
                 return '';
-            case 'company_type':
+            case 'product_type':
                 // Not required anymore
                 return '';
             case 'email':
-                return validateEmail(value).error || '';
+                return value ? (validateEmail(value).error || '') : '';
             case 'phone':
                 return value ? (validatePhoneNumber(value).error || '') : '';
             case 'person_country':
-                return validateRequired(value, 'Person country').error || '';
+                return validateRequired(value, 'Person country').error || null;
             case 'company_country':
                 // Not required anymore
-                return '';
+                return validateRequired(value, 'company country').error || null;
             case 'company_linkedin_url':
                 return validateUrl(value, 'Company LinkedIn URL', false);
             case 'company_website':
@@ -199,10 +215,15 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
         // Validate only required fields and fields with values
         Object.keys(formData).forEach(key => {
-            const value = formData[key as keyof typeof formData] as string;
-            // Only validate if field is required or has a value
-            if (requiredFields.includes(key) || value.trim() !== '') {
-                const error = validateField(key, value);
+            const value = formData[key as keyof typeof formData];
+            // Convert value to string for validation, handling both strings and numbers
+            const stringValue = typeof value === 'string' ? value : String(value);
+
+            // Only validate if field is required or has a value (for strings, check if trimmed value is not empty)
+            const hasValue = typeof value === 'string' ? value.trim() !== '' : value !== null && value !== undefined;
+
+            if (requiredFields.includes(key) || hasValue) {
+                const error = validateField(key, stringValue);
                 if (error) {
                     newErrors[key] = error;
                 }
@@ -222,20 +243,28 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
         setErrors(prev => ({ ...prev, [fieldName]: error }));
     };
 
-    const handleDesignationChange = (value: string) => {
-        setFormData(prev => ({ ...prev, designation: value }));
-        setTouched(prev => ({ ...prev, designation: true }));
+    const handleDepartmentChange = (value: string) => {
+        setFormData(prev => ({ ...prev, department: value }));
+        setTouched(prev => ({ ...prev, department: true }));
 
-        const error = validateField('designation', value);
-        setErrors(prev => ({ ...prev, designation: error }));
+        const error = validateField('department', value);
+        setErrors(prev => ({ ...prev, department: error }));
     };
 
-    const handleCompanyTypeChange = (value: string) => {
-        setFormData(prev => ({ ...prev, company_type: value }));
-        setTouched(prev => ({ ...prev, company_type: true }));
+    const handleProductTypeChange = (value: string) => {
+        setFormData(prev => ({ ...prev, product_type: value }));
+        setTouched(prev => ({ ...prev, product_type: true }));
 
-        const error = validateField('company_type', value);
-        setErrors(prev => ({ ...prev, company_type: error }));
+        const error = validateField('product_type', value);
+        setErrors(prev => ({ ...prev, product_type: error }));
+    };
+
+    const handleRegionChange = (value: string) => {
+        setFormData(prev => ({ ...prev, region: value }));
+        setTouched(prev => ({ ...prev, region: true }));
+
+        const error = validateField('region', value);
+        setErrors(prev => ({ ...prev, region: error }));
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -338,9 +367,58 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
             const statusCode = err?.response?.status;
             let isDuplicateError = false;
 
-            if (err?.response?.data) {
-                // Handle different API response structures
-                if (err.response.data.error) {
+            if (err) {
+                // Handle validation errors based on your template structure
+                // Template: { "success": false, "error": { "phone": ["The phone field must be a string."], ... } }
+                if (err.success === false && err.error && typeof err.error === 'object') {
+                    // Handle field-specific validation errors
+                    const validationErrors = err.error;
+                    console.log(validationErrors);
+                    const newFormErrors: FormErrors = {};
+
+                    // Map API validation errors to form errors
+                    Object.keys(validationErrors).forEach(field => {
+                        const fieldErrors = validationErrors[field];
+                        if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+                            newFormErrors[field] = fieldErrors[0]; // Use first error message
+                        }
+                    });
+
+                    // Set form errors and mark fields as touched
+                    setErrors(prev => ({ ...prev, ...newFormErrors }));
+                    const touchedFields = Object.keys(newFormErrors).reduce((acc, field) => {
+                        acc[field] = true;
+                        return acc;
+                    }, {} as Record<string, boolean>);
+                    setTouched(prev => ({ ...prev, ...touchedFields }));
+
+                    // Show general validation error message
+                    showError('Please fix the validation errors and try again', {
+                        title: 'Validation Error',
+                        duration: 8000,
+                        actions: [
+                            {
+                                label: 'Fix Errors',
+                                onClick: () => {
+                                    setIsLoading(false);
+                                    // Focus on first error field
+                                    const firstErrorField = Object.keys(newFormErrors)[0];
+                                    if (firstErrorField) {
+                                        const fieldElement = document.getElementById(firstErrorField) as HTMLInputElement;
+                                        if (fieldElement) {
+                                            fieldElement.focus();
+                                        }
+                                    }
+                                },
+                                variant: 'primary'
+                            }
+                        ]
+                    });
+                    return;
+                }
+
+                // Handle other API response structures
+                if (err.response.data.error && typeof err.response.data.error === 'string') {
                     errorMessage = err.response.data.error;
                     // Check for duplicate/already exists errors
                     isDuplicateError = errorMessage.toLowerCase().includes('already exists') ||
@@ -470,27 +548,27 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="company_type" className="block text-sm font-medium text-gray-700">
-                                        Company Type
+                                    <label htmlFor="product_type" className="block text-sm font-medium text-gray-700">
+                                        Product Type
                                     </label>
                                     <CustomizableDropdown
-                                        id="company_type"
-                                        options={companyTypes}
-                                        value={formData.company_type}
-                                        onChange={handleCompanyTypeChange}
-                                        placeholder="Select or enter company type"
-                                        emptyMessage="No company types found. Type a custom company type and click outside to use it."
+                                        id="product_type"
+                                        options={productTypes}
+                                        value={formData.product_type}
+                                        onChange={handleProductTypeChange}
+                                        placeholder="Select or enter product type"
+                                        emptyMessage="No product types found. Type a custom product type and click outside to use it."
                                         disabled={isLoading}
-                                        loading={isLoadingCompanyTypes}
+                                        loading={isLoadingProductTypes}
                                         allowCustomInput={true}
-                                        className={`mt-1 ${touched.company_type && errors.company_type ? 'border-red-300' : ''}`}
+                                        className={`mt-1 ${touched.product_type && errors.product_type ? 'border-red-300' : ''}`}
                                     />
-                                    {touched.company_type && errors.company_type && (
+                                    {touched.product_type && errors.product_type && (
                                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                                             <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                             </svg>
-                                            {errors.company_type}
+                                            {errors.product_type}
                                         </p>
                                     )}
                                 </div>
@@ -611,7 +689,7 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
 
                                 <div>
                                     <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                        Email <span className="text-red-500">*</span>
+                                        Email
                                     </label>
                                     <input
                                         type="email"
@@ -620,7 +698,6 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                         value={formData.email}
                                         onChange={handleChange}
                                         onBlur={handleBlur}
-                                        required
                                         placeholder="Enter email address"
                                         className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.email && errors.email
                                             ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
@@ -647,9 +724,21 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                         name="phone"
                                         value={formData.phone}
                                         onChange={handleChange}
+                                        onBlur={handleBlur}
                                         placeholder="Enter phone number"
-                                        className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.phone && errors.phone
+                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                            : 'border-gray-300'
+                                            }`}
                                     />
+                                    {touched.phone && errors.phone && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            {errors.phone}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -662,28 +751,38 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                         name="person_linkedin_url"
                                         value={formData.person_linkedin_url}
                                         onChange={handleChange}
+                                        onBlur={handleBlur}
                                         placeholder="Enter LinkedIn URL"
-                                        className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.person_linkedin_url && errors.person_linkedin_url
+                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                            : 'border-gray-300'
+                                            }`}
                                     />
+                                    {touched.person_linkedin_url && errors.person_linkedin_url && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            {errors.person_linkedin_url}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
                                     <label htmlFor="department" className="block text-sm font-medium text-gray-700">
                                         Department <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="text"
+                                    <CustomizableDropdown
                                         id="department"
-                                        name="department"
+                                        options={departments}
                                         value={formData.department}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        required
-                                        placeholder="Enter department"
-                                        className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.department && errors.department
-                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                            : 'border-gray-300'
-                                            }`}
+                                        onChange={handleDepartmentChange}
+                                        placeholder="Select or enter department"
+                                        emptyMessage="No departments found. Type a custom department and click outside to use it."
+                                        disabled={isLoading}
+                                        loading={isLoadingDepartments}
+                                        allowCustomInput={true}
+                                        className={`mt-1 ${touched.department && errors.department ? 'border-red-300' : ''}`}
                                     />
                                     {touched.department && errors.department && (
                                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -699,17 +798,18 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                     <label htmlFor="designation" className="block text-sm font-medium text-gray-700">
                                         Designation
                                     </label>
-                                    <CustomizableDropdown
+                                    <input
+                                        type="text"
                                         id="designation"
-                                        options={departments}
+                                        name="designation"
                                         value={formData.designation}
-                                        onChange={handleDesignationChange}
-                                        placeholder="Select or enter designation"
-                                        emptyMessage="No designations found. Type a custom designation and click outside to use it."
-                                        disabled={isLoading}
-                                        loading={isLoadingDepartments}
-                                        allowCustomInput={true}
-                                        className={`mt-1 ${touched.designation && errors.designation ? 'border-red-300' : ''}`}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                        placeholder="Enter designation"
+                                        className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.designation && errors.designation
+                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                            : 'border-gray-300'
+                                            }`}
                                     />
                                     {touched.designation && errors.designation && (
                                         <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -761,6 +861,32 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                         className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
+
+                                <div>
+                                    <label htmlFor="region" className="block text-sm font-medium text-gray-700">
+                                        Region
+                                    </label>
+                                    <CustomizableDropdown
+                                        id="region"
+                                        options={regions}
+                                        value={formData.region}
+                                        onChange={handleRegionChange}
+                                        placeholder="Select or enter region"
+                                        emptyMessage="No regions found. Type a custom region and click outside to use it."
+                                        disabled={isLoading}
+                                        loading={isLoadingRegions}
+                                        allowCustomInput={true}
+                                        className={`mt-1 ${touched.region && errors.region ? 'border-red-300' : ''}`}
+                                    />
+                                    {touched.region && errors.region && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            {errors.region}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -778,9 +904,21 @@ const ContactForm = ({ contact, onSuccess, onCancel }: ContactFormProps) => {
                                         name="reference"
                                         value={formData.reference}
                                         onChange={handleChange}
+                                        onBlur={handleBlur}
                                         placeholder="Enter reference source"
-                                        className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        className={`mt-1 block w-full px-3 py-2 text-sm border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${touched.reference && errors.reference
+                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                            : 'border-gray-300'
+                                            }`}
                                     />
+                                    {touched.reference && errors.reference && (
+                                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            {errors.reference}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>

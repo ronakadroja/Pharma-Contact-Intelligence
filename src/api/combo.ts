@@ -107,33 +107,64 @@ export const fetchDepartments = async (): Promise<CompanyOption[]> => {
 };
 
 /**
- * Fetch company types for dropdown
+ * Fetch product types for dropdown
  */
-export const fetchCompanyTypes = async (): Promise<CompanyOption[]> => {
+export const fetchProductTypes = async (): Promise<CompanyOption[]> => {
   try {
-    const url = getComboUrl('COMPANY_TYPE');
-    console.log('Fetching company types from URL:', url);
-
+    const url = getComboUrl('PRODUCT_TYPE');
     const response = await api.get<CompanyResponse>(url);
-    console.log('Company types API response:', response.data);
 
     if (response.data.success && response.data.data) {
       // Convert the object format to array of options
-      const companyTypes = Object.entries(response.data.data).map(([id, name]) => ({
+      const productTypes = Object.entries(response.data.data).map(([id, name]) => ({
         id,
         name
       }));
-      console.log('Processed company types:', companyTypes);
-      return companyTypes;
+
+      return productTypes;
     }
 
-    console.log('Company types API returned no data or unsuccessful response');
+
     return [];
   } catch (error) {
-    console.error('Error fetching company types:', error);
-    throw new Error('Failed to fetch company types');
+    console.warn('Product types API not available, using default values:', error);
+    return [];
   }
 };
+
+/**
+ * Fetch regions for dropdown
+ */
+export const fetchRegions = async (): Promise<CompanyOption[]> => {
+  try {
+    const url = getComboUrl('REGION');
+    console.log('Fetching regions from URL:', url);
+
+    const response = await api.get<CompanyResponse>(url);
+    console.log('Regions API response:', response.data);
+
+    if (response.data.success && response.data.data) {
+      // Convert the object format to array of options
+      const regions = Object.entries(response.data.data).map(([id, name]) => ({
+        id,
+        name
+      }));
+      console.log('Processed regions:', regions.length, 'items');
+      return regions;
+    }
+
+    console.log('Regions API returned no data or unsuccessful response');
+    return [];
+  } catch (error) {
+    console.error('Error fetching regions:', error);
+    throw new Error('Failed to fetch regions');
+  }
+};
+
+/**
+ * @deprecated Use fetchProductTypes instead. This is kept for backward compatibility.
+ */
+export const fetchCompanyTypes = fetchProductTypes;
 
 /**
  * Search companies by name (client-side filtering)
