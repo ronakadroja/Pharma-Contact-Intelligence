@@ -1,4 +1,4 @@
-import { CheckCircle, Download, Linkedin, Mail, Phone, X, XCircle } from 'lucide-react';
+import { BadgeCheck, CheckCircle, Download, Linkedin, Mail, Phone, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSavedContacts } from '../api/contacts';
 import Header from '../components/Header';
@@ -27,6 +27,7 @@ interface SavedContact {
     company_website: string | null;
     status: 'Active' | 'Inactive';
     is_verified: number;
+    is_professional_email?: boolean;
 }
 
 
@@ -79,123 +80,186 @@ const MyListPage = () => {
             enableHiding: false,
         },
         {
-            accessorKey: 'person_name',
-            header: 'Contact Name',
-            cell: ({ row }) => (
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">{row.original.person_name}</span>
-                        {row.original.person_linkedin_url && (
-                            <a
-                                href={row.original.person_linkedin_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 transition-colors"
-                                title="View LinkedIn Profile"
-                            >
-                                <Linkedin size={16} />
-                            </a>
-                        )}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                        {row.original.designation} | {row.original.department}
-                    </div>
-                </div>
-            ),
-        },
-        {
             accessorKey: 'company_name',
             header: 'Company',
+            size: 200,
             cell: ({ row }) => (
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">{row.original.company_name}</span>
+                <div className="min-w-0 max-w-[200px]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                            {row.original.company_name}
+                        </span>
                         {row.original.company_linkedin_url && (
                             <a
                                 href={row.original.company_linkedin_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                className="text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
                                 title="View Company LinkedIn"
                             >
-                                <Linkedin size={16} />
+                                <Linkedin size={14} />
                             </a>
                         )}
                     </div>
                     {row.original.company_website && (
-                        <a
-                            href={row.original.company_website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline mt-1"
-                        >
+                        <div className="text-xs text-blue-600 hover:text-blue-800 transition-colors truncate">
                             {row.original.company_website}
-                        </a>
+                        </div>
                     )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'person_name',
+            header: 'Contact Person',
+            size: 180,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[180px]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 truncate">
+                            {row.original.person_name}
+                        </span>
+                        {row.original.person_linkedin_url && (
+                            <a
+                                href={row.original.person_linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
+                                title="View LinkedIn Profile"
+                            >
+                                <Linkedin size={14} />
+                            </a>
+                        )}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate">
+                        {row.original.designation}
+                    </div>
                 </div>
             ),
         },
         {
             accessorKey: 'contact_info',
             header: 'Contact Info',
+            size: 220,
             cell: ({ row }) => (
-                <div className="flex flex-col gap-1">
-                    <a
-                        href={`mailto:${row.original.email}`}
-                        className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
-                    >
-                        <Mail size={14} />
-                        {row.original.email}
-                    </a>
-                    {row.original.phone_number && (
-                        <a
-                            href={`tel:${row.original.phone_number}`}
-                            className="flex items-center gap-1 text-sm text-green-600 hover:underline"
-                        >
-                            <Phone size={14} />
-                            {row.original.phone_number}
-                        </a>
-                    )}
+                <div className="min-w-0 max-w-[220px]">
+                    <div className="space-y-1">
+                        {/* Email */}
+                        {row.original.email && (
+                            <a
+                                href={`mailto:${row.original.email}`}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline group"
+                                title={row.original.email}
+                            >
+                                <Mail size={12} className="text-blue-500 flex-shrink-0" />
+                                <span className="truncate">{row.original.email}</span>
+                                {row.original.is_professional_email && (
+                                    <div title="Professional Email">
+                                        <BadgeCheck size={12} className="text-green-700 flex-shrink-0" />
+                                    </div>
+                                )}
+                            </a>
+                        )}
+                        {/* Phone */}
+                        {row.original.phone_number && (
+                            <a
+                                href={`tel:${row.original.phone_number}`}
+                                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 hover:underline group"
+                                title={row.original.phone_number}
+                            >
+                                <Phone size={12} className="text-green-500 flex-shrink-0" />
+                                <span className="truncate">{row.original.phone_number}</span>
+                            </a>
+                        )}
+                    </div>
                 </div>
             ),
         },
         {
-            accessorKey: 'location',
-            header: 'Location',
-            cell: ({ row }) => (
-                <div className="text-sm text-gray-900">
-                    {row.original.city}, {row.original.person_country}
-                    {row.original.company_country && row.original.company_country !== row.original.person_country && (
-                        <div className="text-xs text-gray-500">Company: {row.original.company_country}</div>
-                    )}
-                </div>
-            ),
+            accessorKey: 'is_verified',
+            header: 'Status',
+            size: 100,
+            cell: ({ row }) => {
+                const isVerified = row.original.is_verified === 1;
+                return (
+                    <div className="flex justify-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${isVerified
+                            ? 'bg-green-100 text-green-800 border border-green-200'
+                            : 'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                            {isVerified ? (
+                                <CheckCircle size={10} className="mr-1" />
+                            ) : (
+                                <XCircle size={10} className="mr-1" />
+                            )}
+                            {isVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                    </div>
+                );
+            },
         },
         {
-            accessorKey: 'region',
-            header: 'Region',
+            accessorKey: 'department',
+            header: 'Department',
+            size: 160,
             cell: ({ row }) => (
-                <div className="text-sm text-gray-900">
-                    {row.original.region || 'N/A'}
+                <div className="min-w-0 max-w-[160px]">
+                    <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
+                        {row.original.department}
+                    </div>
                 </div>
             ),
         },
         {
             accessorKey: 'product_type',
             header: 'Product Type',
+            size: 140,
             cell: ({ row }) => (
-                <div className="text-sm text-gray-900">
-                    {row.original.product_type || 'N/A'}
+                <div className="min-w-0 max-w-[140px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.product_type || 'N/A'}>
+                        {row.original.product_type || 'N/A'}
+                    </div>
                 </div>
             ),
         },
         {
-            accessorKey: 'status',
-            header: 'Status',
+            accessorKey: 'person_country',
+            header: 'Person Country',
+            size: 150,
             cell: ({ row }) => (
-                <div className={`flex items-center gap-1 text-xs ${row.original.is_verified === 1 ? 'text-green-600' : 'text-red-600'}`}>
-                    {row.original.is_verified === 1 ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                    {row.original.is_verified === 1 ? 'Verified' : 'Not Verified'}
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.person_country}>
+                        {row.original.person_country}
+                    </div>
+                    {row.original.city && (
+                        <div className="text-xs text-gray-600 truncate" title={row.original.city}>
+                            {row.original.city}
+                        </div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'company_country',
+            header: 'Company Country',
+            size: 150,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.company_country}>
+                        {row.original.company_country || 'N/A'}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'region',
+            header: 'Region',
+            size: 120,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[120px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.region}>
+                        {row.original.region || 'N/A'}
+                    </div>
                 </div>
             ),
         },

@@ -54,9 +54,9 @@ const LoginPage = () => {
                     {/* Logo/Icon and Header */}
                     <div className="px-8 pt-8 pb-6 text-center border-b border-neutral-100">
                         <div className="w-20 h-20 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-glow transform hover:scale-105 transition-transform">
-                            <span className="text-4xl font-bold text-white">P</span>
+                            <span className="text-4xl font-bold text-white">Q</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Pharma Contact Intelligence</h1>
+                        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Qurodata</h1>
                         <p className="text-neutral-600">Sign in to access your dashboard</p>
                     </div>
 

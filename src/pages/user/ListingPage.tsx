@@ -1,5 +1,5 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { Check, CheckCircle, Filter, Linkedin, Mail, Phone, Plus, X, XCircle } from "lucide-react";
+import { BadgeCheck, Check, CheckCircle, Filter, Linkedin, Mail, Phone, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { getContacts, revealContact, type Contact as APIContact } from "../../api/contacts";
 import { fetchCompanies, fetchCountries, fetchDepartments, fetchProductTypes, fetchRegions, type CompanyOption } from "../../api/combo";
@@ -32,7 +32,8 @@ const ListingPage = () => {
     const [hasMoreData, setHasMoreData] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
 
-    const [showFilters, setShowFilters] = useState(true); // true = visible by default
+    const [showFilters, setShowFilters] = useState(true);
+    const [totalContacts, setTotalContacts] = useState(0); // true = visible by default
     const [searchParams, setSearchParams] = useState<{
         company_name: string[] | string;
         person_name: string;
@@ -169,7 +170,7 @@ const ListingPage = () => {
         {
             accessorKey: 'contact_info',
             header: 'Contact Info',
-            size: 200,
+            size: 220,
             cell: ({ row }) => {
                 const hasEmail = row.original.email && row.original.email.trim() !== '';
                 const hasPhone = row.original.phone && row.original.phone.trim() !== '';
@@ -177,7 +178,7 @@ const ListingPage = () => {
                 // If neither email nor phone is present, show masked dummy data
                 if (!hasEmail && !hasPhone) {
                     return (
-                        <div className="min-w-0 max-w-[200px]">
+                        <div className="min-w-0 max-w-[220px]">
                             <div className="space-y-1">
                                 <div className="flex items-center gap-1">
                                     <Mail size={12} className="text-gray-400 flex-shrink-0" />
@@ -193,7 +194,7 @@ const ListingPage = () => {
                 }
 
                 return (
-                    <div className="min-w-0 max-w-[200px]">
+                    <div className="min-w-0 max-w-[220px]">
                         <div className="space-y-1">
                             {/* Email */}
                             {hasEmail && (
@@ -204,6 +205,11 @@ const ListingPage = () => {
                                 >
                                     <Mail size={12} className="text-blue-500 flex-shrink-0" />
                                     <span className="truncate">{row.original.email}</span>
+                                    {row.original.is_professional_email && (
+                                        <div title="Professional Email">
+                                            <BadgeCheck size={12} className="text-green-700 flex-shrink-0" />
+                                        </div>
+                                    )}
                                 </a>
                             )}
                             {/* Phone */}
@@ -249,9 +255,9 @@ const ListingPage = () => {
                             <button
                                 onClick={() => handleRevealContact(row.original)}
                                 disabled={hasInsufficientCredits}
-                                className={`inline-flex items-center gap-1 px-1 py-1 text-xs font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-offset-1 ${hasInsufficientCredits
+                                className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-offset-1 ${hasInsufficientCredits
                                     ? 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60 border border-gray-200'
-                                    : 'text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-200 hover:border-blue-600 focus:ring-blue-500'
+                                    : 'text-white bg-blue-600 border border-blue-200 hover:border-blue-600 focus:ring-blue-500'
                                     }`}
                                 title={hasInsufficientCredits ? 'Insufficient credits (need more than 50)' : 'Add to your list'}
                             >
@@ -287,15 +293,16 @@ const ListingPage = () => {
             },
         },
         {
-            accessorKey: 'location',
-            header: 'Location',
+            accessorKey: 'person_country',
+            header: 'Person Country',
             size: 150,
             cell: ({ row }) => (
-                <div className="min-w-0 max-w-[150px]">
-                    <div className="text-sm text-gray-900 truncate" title={`${row.original.city}, ${row.original.person_country}`}>
-                        <span className="font-medium">{row.original.city}</span>
-                        {row.original.city && row.original.person_country && ', '}
-                        <span className="text-gray-600">{row.original.person_country}</span>
+                   <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.person_country}>
+                        {row.original.person_country}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate" title={row.original.city}>
+                        {row.original.city}
                     </div>
                 </div>
             ),
@@ -308,9 +315,6 @@ const ListingPage = () => {
                 <div className="min-w-0 max-w-[160px]">
                     <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
                         {row.original.department}
-                    </div>
-                    <div className="text-xs text-gray-600 truncate" title={row.original.product_type}>
-                        {row.original.product_type}
                     </div>
                 </div>
             ),
@@ -392,6 +396,9 @@ const ListingPage = () => {
 
             // Update pagination state
             setHasMoreData(response.current_page < response.last_page);
+
+            // Update total contacts count
+            setTotalContacts(response.total);
 
             if (showSuccessToast) {
                 showToast('Contact data loaded successfully', 'success');
@@ -568,12 +575,7 @@ const ListingPage = () => {
                     >
                         <Filter size={16} />
                         <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
-                        {Object.values(searchParams).filter(value => value !== '').length > 0 && (
-                            <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {Object.values(searchParams).filter(value => value !== '').length}
-                            </span>
-                        )}
-                    </button>
+                  </button>
                 </div>
             </div>
 
@@ -613,7 +615,14 @@ const ListingPage = () => {
                             <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 rounded-t-lg px-4 lg:px-6 py-3">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                                     <div>
-                                        <h2 className="text-lg font-semibold text-gray-900">Contacts</h2>
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <h2 className="text-lg font-semibold text-gray-900">Contacts</h2>
+                                            {totalContacts > 0 && (
+                                                <div className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full border border-blue-200">
+                                                    {totalContacts.toLocaleString()} {totalContacts === 1 ? 'contact' : 'contacts'}
+                                                </div>
+                                            )}
+                                        </div>
                                         <p className="text-sm text-gray-500">
                                             Browse and manage your contact database
                                         </p>
@@ -634,11 +643,6 @@ const ListingPage = () => {
                                         >
                                             <Filter size={16} />
                                             <span>{showFilters ? 'Hide Filter' : 'Show Filter'}</span>
-                                            {Object.values(searchParams).filter(value => value !== '').length > 0 && (
-                                                <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {Object.values(searchParams).filter(value => value !== '').length}
-                                                </span>
-                                            )}
                                         </button>
                                     </div>
                                 </div>

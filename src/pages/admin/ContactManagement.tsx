@@ -1,5 +1,5 @@
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import { CheckCircle, Filter, Linkedin, Pencil, Plus, Search, Trash2, Upload, X, XCircle } from 'lucide-react';
+import { BadgeCheck, CheckCircle, Filter, Linkedin, Mail, Pencil, Phone, Plus, Search, Trash2, Upload, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Multiselect from 'multiselect-react-dropdown';
 import {
@@ -121,6 +121,11 @@ const ContactManagement = () => {
                             {row.original.company_website}
                         </div>
                     )}
+                    {row.original.company_type && (
+                        <div className="text-xs text-gray-500 truncate">
+                            Type: {row.original.company_type}
+                        </div>
+                    )}
                 </div>
             ),
         },
@@ -152,7 +157,44 @@ const ContactManagement = () => {
                 </div>
             ),
         },
-
+        {
+            accessorKey: 'contact_info',
+            header: 'Contact Info',
+            size: 220,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[220px]">
+                    <div className="space-y-1">
+                        {/* Email */}
+                        {row.original.email && (
+                            <a
+                                href={`mailto:${row.original.email}`}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline group"
+                                title={row.original.email}
+                            >
+                                <Mail size={12} className="text-blue-500 flex-shrink-0" />
+                                <span className="truncate">{row.original.email}</span>
+                                {row.original.is_professional_email && (
+                                    <div title="Professional Email">
+                                        <BadgeCheck size={12} className="text-green-700 flex-shrink-0" />
+                                    </div>
+                                )}
+                            </a>
+                        )}
+                        {/* Phone */}
+                        {row.original.phone && (
+                            <a
+                                href={`tel:${row.original.phone}`}
+                                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 hover:underline group"
+                                title={row.original.phone}
+                            >
+                                <Phone size={12} className="text-green-500 flex-shrink-0" />
+                                <span className="truncate">{row.original.phone}</span>
+                            </a>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
         {
             accessorKey: 'is_verified',
             header: 'Status',
@@ -177,20 +219,6 @@ const ContactManagement = () => {
             },
         },
         {
-            accessorKey: 'location',
-            header: 'Location',
-            size: 150,
-            cell: ({ row }) => (
-                <div className="min-w-0 max-w-[150px]">
-                    <div className="text-sm text-gray-900 truncate" title={`${row.original.city}, ${row.original.person_country}`}>
-                        <span className="font-medium">{row.original.city}</span>
-                        {row.original.city && row.original.person_country && ', '}
-                        <span className="text-gray-600">{row.original.person_country}</span>
-                    </div>
-                </div>
-            ),
-        },
-        {
             accessorKey: 'department',
             header: 'Department',
             size: 160,
@@ -198,9 +226,6 @@ const ContactManagement = () => {
                 <div className="min-w-0 max-w-[160px]">
                     <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.department}>
                         {row.original.department}
-                    </div>
-                    <div className="text-xs text-gray-600 truncate" title={row.original.product_type}>
-                        {row.original.product_type}
                     </div>
                 </div>
             ),
@@ -218,18 +243,46 @@ const ContactManagement = () => {
             ),
         },
         {
+            accessorKey: 'person_country',
+            header: 'Person Country',
+            size: 150,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[150px]">
+                    <div className="text-sm font-semibold text-gray-900 truncate mb-1" title={row.original.person_country}>
+                        {row.original.person_country}
+                    </div>
+                    {row.original.city && (
+                        <div className="text-xs text-gray-600 truncate" title={row.original.city}>
+                            {row.original.city}
+                        </div>
+                    )}
+                </div>
+            ),
+        },
+        {
             accessorKey: 'company_country',
             header: 'Company Country',
             size: 150,
             cell: ({ row }) => (
                 <div className="min-w-0 max-w-[150px]">
                     <div className="text-sm text-gray-900 truncate" title={row.original.company_country}>
-                        {row.original.company_country}
+                        {row.original.company_country || 'N/A'}
                     </div>
                 </div>
             ),
         },
-
+        {
+            accessorKey: 'region',
+            header: 'Region',
+            size: 120,
+            cell: ({ row }) => (
+                <div className="min-w-0 max-w-[120px]">
+                    <div className="text-sm text-gray-900 truncate" title={row.original.region}>
+                        {row.original.region || 'N/A'}
+                    </div>
+                </div>
+            ),
+        },
         {
             id: 'actions',
             header: 'Actions',

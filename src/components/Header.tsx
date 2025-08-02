@@ -41,23 +41,21 @@ const Header = () => {
                 <div className="flex justify-between items-center h-18">
                     {/* Logo and Brand */}
                     <div className="flex-shrink-0 flex items-center">
-                        <Link to="/" className="flex items-center space-x-4 group" aria-label="Pharma Contacts Home">
+                        <Link to="/" className="flex items-center space-x-2 group" aria-label="Pharma Contacts Home">
                             <div className="relative p-2">
                                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                                    <svg className="h-7 w-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.5h-15a2 2 0 00-2 2v9a2 2 0 002 2h15a2 2 0 002-2v-9a2 2 0 00-2-2z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5v7M8.5 12h7" />
-                                    </svg>
+                                               <span className="text-3xl font-bold text-white">Q</span>
+
                                 </div>
                                 <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-xl transform group-hover:scale-110 transition-transform duration-300"></div>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 tracking-tight">
-                                    Pharma Contacts
+                                    Qurodata
                                 </span>
-                                <span className="text-xs text-gray-500 font-medium tracking-wide">
+                                {/* <span className="text-xs text-gray-500 font-medium tracking-wide">
                                     Intelligence Platform
-                                </span>
+                                </span> */}
                             </div>
                         </Link>
                     </div>

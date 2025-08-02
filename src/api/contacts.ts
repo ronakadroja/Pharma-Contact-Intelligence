@@ -18,8 +18,10 @@ export interface Contact {
     person_linkedin_url: string;
     company_linkedin_url: string;
     company_website: string;
+    company_type?: string;
     status: string;
     is_verified: number; // 1 for verified, 0 for not verified
+    is_professional_email?: boolean;
 }
 
 export interface ContactsResponse {

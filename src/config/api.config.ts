@@ -78,7 +78,7 @@ export const API_CONFIG = {
 export const ENVIRONMENT_CONFIG = {
   development: {
     ...API_CONFIG,
-    BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://65.1.45.90/', // Development API URL
+    BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/', // Development API URL
     TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
   },
 

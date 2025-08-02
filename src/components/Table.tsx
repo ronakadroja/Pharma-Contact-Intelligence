@@ -26,12 +26,12 @@ interface TableProps<T> {
     selectedRows?: RowSelectionState;
     onSelectionChange?: OnChangeFn<RowSelectionState>;
     emptyStateMessage?: string;
-    enablePagination?: boolean; // New prop to control pagination
-    enableTableScroll?: boolean; // New prop to enable table-level scrolling
-    tableHeight?: string; // Height for the scrollable table container
-    scrollContainerRef?: React.RefObject<HTMLDivElement>; // Ref for scroll container
-    isLoadingMore?: boolean; // For infinite scroll loading indicator
-    showScrollToTop?: boolean; // New prop to control scroll-to-top button visibility
+    enablePagination?: boolean;
+    enableTableScroll?: boolean;
+    tableHeight?: string;
+    scrollContainerRef?: React.RefObject<HTMLDivElement>;
+    isLoadingMore?: boolean;
+    showScrollToTop?: boolean;
 }
 
 function Table<T>({
@@ -45,12 +45,12 @@ function Table<T>({
     selectedRows = {},
     onSelectionChange,
     emptyStateMessage = 'No data available',
-    enablePagination = true, // Default to true for backward compatibility
+    enablePagination = true,
     enableTableScroll = false,
     tableHeight = '400px',
     scrollContainerRef,
     isLoadingMore = false,
-    showScrollToTop = true // Default to true to show scroll-to-top button
+    showScrollToTop = true
 }: TableProps<T>) {
     const memoizedColumns = useMemo(() => columns, [columns]);
     const memoizedData = useMemo(() => data, [data]);
@@ -91,9 +91,9 @@ function Table<T>({
                     className="overflow-y-auto overflow-x-auto w-full h-full"
                     style={{ maxWidth: '100%' }}
                 >
-                    <table className="w-full divide-y divide-gray-200" style={{ width: '100%' }}>
+                    <table className="divide-y divide-gray-200" style={{ minWidth: '1400px', width: 'max-content' }}>
                         <thead
-                            className="bg-gray-50 sticky top-0 z-50 shadow-sm border-b border-gray-200"
+                            className="bg-gray-50 sticky top-0 shadow-sm border-b border-gray-200"
                             style={{
                                 position: 'sticky',
                                 top: 0,
@@ -103,66 +103,92 @@ function Table<T>({
                         >
                             {table.getHeaderGroups().map(headerGroup => (
                                 <tr key={headerGroup.id}>
-                                    {headerGroup.headers.map(header => (
-                                        <th
-                                            key={header.id}
-                                            className="pl-5 pr-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 relative z-10"
-                                            style={{
-                                                backgroundColor: '#f9fafb',
-                                                position: 'sticky',
-                                                top: 0,
-                                                paddingLeft: '20px'
-                                            }}
-                                        >
-                                            {header.isPlaceholder ? null : (
-                                                <div
-                                                    className={`flex items-center ${enableSorting && header.column.getCanSort()
-                                                        ? 'cursor-pointer select-none hover:text-gray-700'
-                                                        : ''
-                                                        }`}
-                                                    onClick={header.column.getToggleSortingHandler()}
-                                                    role={enableSorting && header.column.getCanSort() ? 'button' : undefined}
-                                                    tabIndex={enableSorting && header.column.getCanSort() ? 0 : undefined}
-                                                    onKeyDown={(e) => {
-                                                        if (enableSorting && header.column.getCanSort() && (e.key === 'Enter' || e.key === ' ')) {
-                                                            e.preventDefault();
-                                                            header.column.getToggleSortingHandler()?.(e);
-                                                        }
-                                                    }}
-                                                >
-                                                    {flexRender(
-                                                        header.column.columnDef.header,
-                                                        header.getContext()
-                                                    )}
-                                                    {enableSorting && header.column.getCanSort() && (
-                                                        <span className="ml-2">
-                                                            {{
-                                                                asc: <ChevronUp className="h-4 w-4" />,
-                                                                desc: <ChevronDown className="h-4 w-4" />
-                                                            }[header.column.getIsSorted() as string] ?? (
-                                                                    <ArrowUpDown className="h-4 w-4" />
-                                                                )}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </th>
-                                    ))}
+                                    {headerGroup.headers.map((header) => {
+                                        const isActionColumn = header.id === 'actions';
+                                        return (
+                                            <th
+                                                key={header.id}
+                                                className={`pl-5 pr-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 ${
+                                                    isActionColumn ? 'border-l border-gray-300' : ''
+                                                }`}
+                                                style={{
+                                                    backgroundColor: '#f9fafb',
+                                                    position: 'sticky',
+                                                    top: 0,
+                                                    paddingLeft: '20px',
+                                                    zIndex: 50,
+                                                    ...(isActionColumn && {
+                                                        right: 0,
+                                                        boxShadow: '-4px 0 8px rgba(0, 0, 0, 0.15)'
+                                                    })
+                                                }}
+                                            >
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        className={`flex items-center ${enableSorting && header.column.getCanSort()
+                                                            ? 'cursor-pointer select-none hover:text-gray-700'
+                                                            : ''
+                                                            }`}
+                                                        onClick={header.column.getToggleSortingHandler()}
+                                                        role={enableSorting && header.column.getCanSort() ? 'button' : undefined}
+                                                        tabIndex={enableSorting && header.column.getCanSort() ? 0 : undefined}
+                                                        onKeyDown={(e) => {
+                                                            if (enableSorting && header.column.getCanSort() && (e.key === 'Enter' || e.key === ' ')) {
+                                                                e.preventDefault();
+                                                                header.column.getToggleSortingHandler()?.(e);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext()
+                                                        )}
+                                                        {enableSorting && header.column.getCanSort() && (
+                                                            <span className="ml-2">
+                                                                {{
+                                                                    asc: <ChevronUp className="h-4 w-4" />,
+                                                                    desc: <ChevronDown className="h-4 w-4" />
+                                                                }[header.column.getIsSorted() as string] ?? (
+                                                                        <ArrowUpDown className="h-4 w-4" />
+                                                                    )}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </th>
+                                        );
+                                    })}
                                 </tr>
                             ))}
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {table.getRowModel().rows.map(row => (
-                                <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                                    {row.getVisibleCells().map(cell => (
-                                        <td
-                                            key={cell.id}
-                                            className="pl-5 pr-4 py-3 text-sm text-gray-900"
-                                            style={{ paddingLeft: '20px' }}
-                                        >
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </td>
-                                    ))}
+                                <tr key={row.id} className="group hover:bg-gray-50 transition-colors">
+                                    {row.getVisibleCells().map((cell) => {
+                                        const isActionColumn = cell.column.id === 'actions';
+                                        return (
+                                            <td
+                                                key={cell.id}
+                                                className={`pl-5 pr-4 py-3 text-sm text-gray-900 ${
+                                                    isActionColumn
+                                                        ? 'bg-white group-hover:bg-white border-l border-gray-200'
+                                                        : ''
+                                                }`}
+                                                style={{
+                                                    paddingLeft: '20px',
+                                                    ...(isActionColumn && {
+                                                        position: 'sticky',
+                                                        right: 0,
+                                                        backgroundColor: 'white',
+                                                        zIndex: 5,
+                                                        boxShadow: '-4px 0 8px rgba(0, 0, 0, 0.15)'
+                                                    })
+                                                }}
+                                            >
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             ))}
                         </tbody>
@@ -193,7 +219,6 @@ function Table<T>({
 
     return (
         <div className="w-full border border-gray-200 rounded-lg overflow-hidden bg-white">
-            {/* Sticky Header Container */}
             <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full" style={{ minWidth: '1200px', tableLayout: 'fixed' }}>
@@ -252,8 +277,6 @@ function Table<T>({
                     </table>
                 </div>
             </div>
-
-            {/* Scrollable Body Container */}
             <div className="overflow-x-auto">
                 <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1200px', tableLayout: 'fixed' }}>
                     <tbody className="bg-white divide-y divide-gray-200">
