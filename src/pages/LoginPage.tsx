@@ -20,6 +20,7 @@ const LoginPage = () => {
 
         try {
             const loginSuccess = await login(username, encodePassword(password));
+            console.log(loginSuccess);
             if (loginSuccess) {
                 success('Successfully logged in!', {
                     title: 'Welcome',
@@ -38,8 +39,9 @@ const LoginPage = () => {
                     title: 'Login Failed',
                 });
             }
-        } catch (err) {
-            error(err instanceof Error ? err.message : 'An error occurred during login', {
+        } catch (err:any) {
+            console.log(err);
+            error(err ? err.message : 'An error occurred during login', {
                 title: 'Login Error',
             });
         } finally {

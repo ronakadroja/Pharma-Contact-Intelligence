@@ -108,9 +108,7 @@ function Table<T>({
                                         return (
                                             <th
                                                 key={header.id}
-                                                className={`pl-5 pr-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 ${
-                                                    isActionColumn ? 'border-l border-gray-300' : ''
-                                                }`}
+                                                className="pl-5 pr-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50"
                                                 style={{
                                                     backgroundColor: '#f9fafb',
                                                     position: 'sticky',
@@ -169,11 +167,7 @@ function Table<T>({
                                         return (
                                             <td
                                                 key={cell.id}
-                                                className={`pl-5 pr-4 py-3 text-sm text-gray-900 ${
-                                                    isActionColumn
-                                                        ? 'bg-white group-hover:bg-white border-l border-gray-200'
-                                                        : ''
-                                                }`}
+                                                className="pl-5 pr-4 py-3 text-sm text-gray-900"
                                                 style={{
                                                     paddingLeft: '20px',
                                                     ...(isActionColumn && {

@@ -108,9 +108,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 return true;
             }
             return false;
-        } catch (error) {
-            console.error('Login error:', error);
-            return false;
+        } catch (error:any) {
+            console.log(error);
+                  throw new Error(error);
         }
     };
 

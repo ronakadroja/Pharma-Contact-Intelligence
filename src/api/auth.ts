@@ -11,14 +11,14 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
             // Don't store user here, let AppContext handle it
         }
         return response.data;
-    } catch (error) {
+    } catch (error:any) {
         if (error && typeof error === 'object' && 'isAxiosError' in error) {
             const axiosError = error as { response?: { status: number } };
             if (axiosError.response?.status === 401) {
                 throw new Error('Invalid email or password');
             }
         }
-        throw new Error('Failed to login. Please try again.');
+        throw new Error(error.error);
     }
 };
 
